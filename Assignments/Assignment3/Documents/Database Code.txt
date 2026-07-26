@@ -1,0 +1,94 @@
+// ==========================================
+// SmartFM System Final Database Schema
+// Optimized for dbdiagram.io
+// ==========================================
+
+Table users {
+id integer [pk, increment]
+full_name varchar [not null]
+email varchar [unique, not null]
+password_hash varchar [not null]
+role varchar [not null, note: 'ADMIN, COORDINATOR, DRIVER']
+created_at timestamp
+}
+
+Table vehicle_types {
+id integer [pk, increment]
+type_name varchar [not null]
+max_payload_kg numeric [not null, note: 'Boundary <= 30000kg']
+volumetric_limit_m3 numeric [not null, note: 'Boundary <= 120m3']
+}
+
+Table vehicles {
+id integer [pk, increment]
+license_plate varchar [unique, not null]
+vehicle_type_id integer [ref: > vehicle_types.id]
+current_status varchar [not null, note: 'AVAILABLE, ON_TRIP, MAINTENANCE']
+current_mileage numeric [default: 0]
+}
+
+Table drivers {
+id integer [pk, increment]
+user_id integer [ref: - users.id]
+full_name varchar [not null]
+license_number varchar [unique, not null]
+date_of_birth date
+hometown varchar
+is_active boolean [default: true]
+}
+
+Table trips {
+id integer [pk, increment]
+coordinator_id integer [ref: > users.id]
+vehicle_id integer [ref: > vehicles.id]
+driver_id integer [ref: > drivers.id]
+origin_hub varchar [not null]
+destination_hub varchar [not null]
+departure_time timestamp
+arrival_time timestamp
+status varchar [not null, note: 'PLANNED, IN_TRANSIT, COMPLETED, CANCELLED']
+created_at timestamp
+}
+
+Table orders {
+id integer [pk, increment]
+order_code varchar [unique, not null]
+customer_name varchar [not null]
+customer_phone varchar [not null]
+pickup_address varchar [not null]
+delivery_address varchar [not null]
+total_weight_kg numeric [not null, note: 'Boundary Check <= Vehicle Capacity']
+total_volume_m3 numeric [not null, note: 'Boundary Check <= Vehicle Volumetric Limit']
+base_price numeric [not null]
+surge_multiplier numeric [default: 1.0, note: 'Cap at max 2.5']
+total_amount numeric [not null]
+status varchar [not null, note: 'PENDING, ASSIGNED, IN_TRANSIT, DELIVERED, CANCELLED']
+trip_id integer [ref: > trips.id, note: 'FK to Trip when assigned']
+created_at timestamp
+}
+
+Table trip_incidents {
+id integer [pk, increment]
+trip_id integer [ref: > trips.id]
+has_damage boolean [default: false]
+damage_description text
+notes text
+reported_at timestamp
+}
+
+Table telemetry_records {
+id integer [pk, increment]
+vehicle_id integer [ref: > vehicles.id]
+latitude numeric [not null]
+longitude numeric [not null]
+calculated_velocity numeric [not null, note: 'Boundary <= 120 km/h']
+recorded_at timestamp
+}
+
+Table alerts {
+id integer [pk, increment]
+vehicle_id integer [ref: > vehicles.id]
+alert_type varchar [not null, note: 'OVERSPEED, GEOFENCE_BREACH, LOW_BATTERY']
+description text
+created_at timestamp
+}
