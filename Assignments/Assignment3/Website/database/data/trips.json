@@ -39,12 +39,41 @@
     "driver_id": 1,
     "branch_id": 1,
     "rescue_trip_id": null,
-    "status": "IN_TRANSIT",
+    "status": "COMPLETED",
     "distance_km": 120,
     "calculated_fuel_cost": 1500,
-    "lock_version": 1,
+    "lock_version": 2,
     "started_at": "2026-08-01T14:50:39.950Z",
-    "completed_at": null,
-    "id": 3
+    "completed_at": "2026-08-01T15:54:33.573Z",
+    "id": 3,
+    "order": {
+      "origin_branch_id": 1,
+      "destination_branch_id": 3,
+      "vehicle_id": 1,
+      "driver_id": 1,
+      "cargo_description": "500 cartons of wireless earphones and portable ",
+      "total_weight_kg": 2500,
+      "status": "IN_TRANSIT",
+      "id": 2
+    },
+    "vehicle": {
+      "id": 1,
+      "license_plate": "51D-998.23",
+      "branch_id": 1,
+      "vehicle_type_id": 1,
+      "assigned_driver_id": 1,
+      "status": "EN_ROUTE"
+    },
+    "driver": {
+      "id": 1,
+      "user_id": 3,
+      "branch_id": 1,
+      "license_number": "LIC-HCM-88219",
+      "active_service_hours": 120,
+      "status": "ON_TRIP",
+      "username": "driver_alex"
+    },
+    "latest_telemetry": null,
+    "incidents": []
   }
 ]
