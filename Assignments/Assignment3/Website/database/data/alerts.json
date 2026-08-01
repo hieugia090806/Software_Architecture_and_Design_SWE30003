@@ -1,0 +1,18 @@
+[
+  {
+    "id": 1,
+    "vehicle_id": 1,
+    "trip_id": 1,
+    "alert_type": "CRITICAL_INCIDENT",
+    "description": "Engine overheat reported during Trip #1",
+    "created_at": "2026-08-01T10:15:00Z"
+  },
+  {
+    "vehicle_id": 3,
+    "trip_id": 2,
+    "alert_type": "FLAT_TIRE",
+    "description": "EMERGENCY ALERT: FLAT_TIRE on Vehicle ID #3. Damage details: Rear right tire blowout on highway segment A4.",
+    "created_at": "2026-08-01T13:54:34.220Z",
+    "id": 2
+  }
+]

@@ -1,0 +1,50 @@
+[
+  {
+    "id": 1,
+    "order_id": 1,
+    "coordinator_id": 2,
+    "vehicle_id": 1,
+    "vehicle_type_id": 1,
+    "driver_id": 1,
+    "branch_id": 1,
+    "rescue_trip_id": null,
+    "status": "COMPLETED",
+    "distance_km": 120,
+    "calculated_fuel_cost": 1500,
+    "lock_version": 1,
+    "started_at": null,
+    "completed_at": null
+  },
+  {
+    "order_id": 1,
+    "coordinator_id": 2,
+    "vehicle_id": 3,
+    "vehicle_type_id": 3,
+    "driver_id": 2,
+    "branch_id": 1,
+    "rescue_trip_id": null,
+    "status": "COMPLETED",
+    "distance_km": 120,
+    "calculated_fuel_cost": 1500,
+    "lock_version": 2,
+    "started_at": "2026-08-01T13:53:32.967Z",
+    "completed_at": "2026-08-01T13:54:41.719Z",
+    "id": 2
+  },
+  {
+    "order_id": 2,
+    "coordinator_id": 2,
+    "vehicle_id": 1,
+    "vehicle_type_id": 1,
+    "driver_id": 1,
+    "branch_id": 1,
+    "rescue_trip_id": null,
+    "status": "IN_TRANSIT",
+    "distance_km": 120,
+    "calculated_fuel_cost": 1500,
+    "lock_version": 1,
+    "started_at": "2026-08-01T14:50:39.950Z",
+    "completed_at": null,
+    "id": 3
+  }
+]

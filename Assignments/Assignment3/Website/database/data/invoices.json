@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "order_id": 1,
+    "base_tariff": 500000,
+    "distance_surcharge": 1200000,
+    "surge_multiplier": 1.1,
+    "total_amount": 1870000,
+    "payment_status": "PAID",
+    "issued_at": "2026-08-01T12:00:00Z"
+  },
+  {
+    "order_id": 1,
+    "base_tariff": 350,
+    "distance_surcharge": 850,
+    "surge_multiplier": 1.25,
+    "total_amount": 1500,
+    "payment_status": "PAID",
+    "issued_at": "2026-08-01T13:55:30.805Z",
+    "id": 2
+  }
+]
