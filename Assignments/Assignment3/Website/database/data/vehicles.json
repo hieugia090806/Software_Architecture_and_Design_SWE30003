@@ -5,7 +5,7 @@
     "branch_id": 1,
     "vehicle_type_id": 1,
     "assigned_driver_id": 1,
-    "status": "AVAILABLE"
+    "status": "EN_ROUTE"
   },
   {
     "id": 2,
@@ -13,7 +13,7 @@
     "branch_id": 1,
     "vehicle_type_id": 2,
     "assigned_driver_id": 2,
-    "status": "AVAILABLE"
+    "status": "EN_ROUTE"
   },
   {
     "license_plate": "43C-999.11",
@@ -22,7 +22,7 @@
     "assigned_driver_id": null,
     "status": "AVAILABLE",
     "id": 3
-},
+  },
   {
     "license_plate": "51A-123.55",
     "branch_id": 2,

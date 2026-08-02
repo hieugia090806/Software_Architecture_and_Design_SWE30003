@@ -5,7 +5,9 @@
     "branch_id": 1,
     "license_number": "LIC-HCM-88219",
     "active_service_hours": 120,
-    "status": "ON_TRIP"
+    "status": "ON_TRIP",
+    "username": "driver_alex",
+    "trips": []
   },
   {
     "id": 2,
@@ -13,14 +15,60 @@
     "branch_id": 1,
     "license_number": "LIC-HCM-99401",
     "active_service_hours": 85,
-    "status": "ON_TRIP"
+    "status": "ON_TRIP",
+    "username": "driver_bob",
+    "trips": []
   },
   {
     "user_id": 4,
     "branch_id": 2,
     "license_number": "LIC-DAN-12401",
     "active_service_hours": 0,
+    "status": "ON_TRIP",
+    "id": 3,
+    "username": "driver_bob",
+    "trips": []
+  },
+  {
+    "user_id": 5,
+    "branch_id": 2,
+    "license_number": "DRV-DAD-507340",
+    "active_service_hours": 0,
     "status": "AVAILABLE",
-    "id": 3
+    "id": 4
+  },
+  {
+    "full_name": "dwdddddd",
+    "role": "DRIVER",
+    "registration_code": "DRV-HCM-707450",
+    "branch_id": 1,
+    "driver_details": {
+      "license_number": "DL-4654561",
+      "active_service_hours": 0,
+      "status": "AVAILABLE"
+    },
+    "id": 5
+  },
+  {
+    "full_name": "wdaddddddd",
+    "role": "DRIVER",
+    "registration_code": "DRV-DAD-353770",
+    "branch_id": 2,
+    "driver_details": {
+      "license_number": "DL-4568887",
+      "active_service_hours": 0,
+      "status": "AVAILABLE"
+    },
+    "id": 6
+  },
+  {
+    "username": "wdddwaszcxzggg",
+    "full_name": "wdddwaszcxzggg",
+    "branch_id": 1,
+    "license_number": "DL-88888888",
+    "active_service_hours": 0,
+    "status": "AVAILABLE",
+    "trips": [],
+    "id": 7
   }
 ]

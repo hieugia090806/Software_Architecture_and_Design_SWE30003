@@ -1,18 +1,20 @@
 [
   {
-    "id": 1,
     "invoice_id": 1,
-    "transaction_reference": "TXN-SIM-2026-0801-9921",
-    "amount_paid": 1870000,
-    "transaction_status": "SIMULATED_SUCCESS",
-    "processed_at": "2026-08-01T12:05:00Z"
+    "transaction_reference": "TXN-244476",
+    "amount_paid": 4100,
+    "payment_method": "BANK_WIRE",
+    "transaction_status": "SUCCESSFUL",
+    "processed_at": "2026-08-02T12:52:28.952Z",
+    "id": 1
   },
   {
     "invoice_id": 2,
-    "transaction_reference": "TXN-1785592538276",
-    "amount_paid": 1500,
-    "transaction_status": "SIMULATED_SUCCESS",
-    "processed_at": "2026-08-01T13:55:38.276Z",
+    "transaction_reference": "TXN-499572",
+    "amount_paid": 4100,
+    "payment_method": "BANK_WIRE",
+    "transaction_status": "SUCCESSFUL",
+    "processed_at": "2026-08-02T12:53:18.917Z",
     "id": 2
   }
 ]

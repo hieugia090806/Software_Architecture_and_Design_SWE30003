@@ -30,23 +30,25 @@ export default function ApprovalsPage() {
     // --- Handlers for Standard Requests ---
     async function handleApproveRequest(req) {
         try {
-            if (req.entity_type === 'new_driver') {
+            const targetType = req.target_entity || req.entity_type;
+
+            if (targetType === 'new_driver') {
                 const newUser = await createEntity('users', {
-                    username: req.payload.username,
-                    password_hash: req.payload.password_hash || '$2b$10$e83/hash_driver_default',
+                    username: req.payload?.username,
+                    password_hash: req.payload?.password_hash || '$2b$10$e83/hash_driver_default',
                     role: 'DRIVER',
                     created_at: new Date().toISOString()
                 });
 
                 await createEntity('drivers', {
                     user_id: newUser.id,
-                    branch_id: Number(req.payload.branch_id),
-                    license_number: req.payload.license_number,
+                    branch_id: Number(req.payload?.branch_id),
+                    license_number: req.payload?.license_number,
                     active_service_hours: 0,
                     status: 'AVAILABLE'
                 });
-            } else {
-                await createEntity(req.entity_type, req.payload);
+            } else if (targetType) {
+                await createEntity(targetType, req.payload);
             }
 
             await updateEntity('requests', req.id, { ...req, status: 'APPROVED' });
@@ -65,17 +67,15 @@ export default function ApprovalsPage() {
         }
     }
 
-    // --- Handlers for Driver Terminal Actions (Trip Completions & Breakdown Incidents) ---
+    // --- Handlers for Driver Terminal Actions ---
     async function handleApproveTripCompletion(trip) {
         try {
-            // 1. Mark trip as COMPLETED
             await updateEntity('trips', trip.id, {
                 ...trip,
                 status: 'COMPLETED',
                 completed_at: new Date().toISOString()
             });
 
-            // 2. Mark assigned vehicle as AVAILABLE
             if (trip.vehicle_id) {
                 await updateEntity('vehicles', trip.vehicle_id, { status: 'AVAILABLE' });
             }
@@ -89,18 +89,15 @@ export default function ApprovalsPage() {
 
     async function handleApproveIncidentAndReRoute(trip) {
         try {
-            // 1. Mark original trip as CANCELLED due to breakdown
             await updateEntity('trips', trip.id, {
                 ...trip,
                 status: 'CANCELLED_BREAKDOWN'
             });
 
-            // 2. Set vehicle to MAINTENANCE
             if (trip.vehicle_id) {
                 await updateEntity('vehicles', trip.vehicle_id, { status: 'MAINTENANCE' });
             }
 
-            // 3. Mark original order as CANCELLED or REASSIGNED
             if (trip.order_id) {
                 await updateEntity('orders', trip.order_id, { status: 'CANCELLED_IN_TRANSIT' });
             }
@@ -114,7 +111,6 @@ export default function ApprovalsPage() {
 
     async function handleRejectTripAction(trip, targetStatus = 'IN_TRANSIT') {
         try {
-            // Revert trip back to IN_TRANSIT
             await updateEntity('trips', trip.id, {
                 ...trip,
                 status: targetStatus
@@ -127,34 +123,52 @@ export default function ApprovalsPage() {
     }
 
     const getBadge = (type) => {
+        const safeType = (type || 'REQUEST').toString().toUpperCase();
+
         switch (type) {
             case 'TRIP_COMPLETION':
                 return { bg: '#dcfce7', text: '#15803d', label: 'TRIP COMPLETION REQUEST' };
             case 'TRIP_INCIDENT':
                 return { bg: '#ffe4e6', text: '#be123c', label: 'BREAKDOWN / EMERGENCY INCIDENT' };
             case 'new_driver':
+            case 'drivers':
                 return { bg: '#dcfce7', text: '#15803d', label: 'NEW DRIVER REGISTRATION' };
+            case 'customers':
+                return { bg: '#e0f2fe', text: '#0369a1', label: 'CUSTOMER REGISTRATION' };
             case 'orders':
                 return { bg: '#e0f2fe', text: '#0369a1', label: 'HUB TRANSFER ORDER' };
             case 'vehicles':
+            case 'vehicle_types':
                 return { bg: '#fef3c7', text: '#b45309', label: 'VEHICLE ASSET' };
             case 'branches':
                 return { bg: '#f3e8ff', text: '#6b21a8', label: 'REGIONAL BRANCH' };
             default:
-                return { bg: '#f1f5f9', text: '#475569', label: type.toUpperCase() };
+                return { bg: '#f1f5f9', text: '#475569', label: safeType };
         }
     };
 
     const renderPayloadDetails = (req) => {
-        const p = req.payload;
-        switch (req.entity_type) {
+        const p = req.payload || {};
+        const entityType = req.target_entity || req.entity_type;
+
+        switch (entityType) {
             case 'new_driver':
+            case 'drivers':
                 return (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px', color: '#334155' }}>
-                        <div><strong>Driver Name:</strong> {p.username}</div>
-                        <div><strong>Auto License:</strong> {p.license_number}</div>
-                        <div><strong>Hub Branch ID:</strong> #{p.branch_id}</div>
-                        <div><strong>Initial Status:</strong> AVAILABLE</div>
+                        <div><strong>Driver Name:</strong> {p.username || p.full_name || 'N/A'}</div>
+                        <div><strong>Auto License:</strong> {p.license_number || 'N/A'}</div>
+                        <div><strong>Hub Branch ID:</strong> #{p.branch_id || 'N/A'}</div>
+                        <div><strong>Initial Status:</strong> {p.status || 'AVAILABLE'}</div>
+                    </div>
+                );
+            case 'customers':
+                return (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px', color: '#334155' }}>
+                        <div><strong>Customer / Company:</strong> {p.company_name || p.contact_name || 'N/A'}</div>
+                        <div><strong>Username:</strong> {p.username || 'N/A'}</div>
+                        <div><strong>Email:</strong> {p.email || 'N/A'}</div>
+                        <div><strong>Phone:</strong> {p.phone || 'N/A'}</div>
                     </div>
                 );
             case 'orders':
@@ -174,6 +188,24 @@ export default function ApprovalsPage() {
                         <div><strong>Branch ID:</strong> #{p.branch_id}</div>
                         <div><strong>Specification ID:</strong> #{p.vehicle_type_id}</div>
                         <div><strong>Status:</strong> {p.status}</div>
+                    </div>
+                );
+            case 'vehicle_types':
+                return (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px', color: '#334155' }}>
+                        <div><strong>Spec Name:</strong> {p.type_name}</div>
+                        <div><strong>Max Payload:</strong> {p.max_payload_kg} kg</div>
+                        <div><strong>Volume Limit:</strong> {p.volumetric_limit_m3} m³</div>
+                        <div><strong>Fuel Rate:</strong> {p.base_fuel_rate} L/km</div>
+                    </div>
+                );
+            case 'branches':
+                return (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px', color: '#334155' }}>
+                        <div><strong>Branch Code:</strong> {p.branch_code}</div>
+                        <div><strong>Name:</strong> {p.branch_name}</div>
+                        <div><strong>City:</strong> {p.location_city}</div>
+                        <div><strong>Radius:</strong> {p.service_radius_km} km</div>
                     </div>
                 );
             default:
@@ -271,7 +303,10 @@ export default function ApprovalsPage() {
 
                     {/* Render Standard System Requests */}
                     {requests.map(req => {
-                        const badge = getBadge(req.entity_type);
+                        const targetType = req.target_entity || req.entity_type;
+                        const titleText = req.description || req.title || 'Pending Request';
+                        const badge = getBadge(targetType);
+
                         return (
                             <div key={`req-${req.id}`} style={{ background: '#ffffff', borderRadius: '12px', padding: '20px 24px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
                                 <div style={{ flex: 1 }}>
@@ -279,7 +314,7 @@ export default function ApprovalsPage() {
                                         <span style={{ fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', background: badge.bg, color: badge.text, letterSpacing: '0.5px' }}>
                                             {badge.label}
                                         </span>
-                                        <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#0f172a' }}>{req.title}</h4>
+                                        <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#0f172a' }}>{titleText}</h4>
                                     </div>
                                     <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
                                         {renderPayloadDetails(req)}

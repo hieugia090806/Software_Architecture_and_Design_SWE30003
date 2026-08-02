@@ -1,10 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { fetchEnriched, fetchEntity, createEntity, updateEntity } from '../services/api';
 
-// Shared Reusable Styles
-const cardStyle = { background: '#fff', borderRadius: '10px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' };
-const inputStyle = { padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', width: '100%', boxSizing: 'border-box' };
-const flexBetween = { display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
+// Reusable UI styles
+const cardStyle = {
+    background: '#ffffff',
+    borderRadius: '12px',
+    padding: '24px',
+    border: '1px solid #e2e8f0',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+};
+
+const inputStyle = {
+    padding: '10px 14px',
+    borderRadius: '8px',
+    border: '1px solid #cbd5e1',
+    fontSize: '14px',
+    width: '100%',
+    boxSizing: 'border-box',
+    outline: 'none',
+    transition: 'border-color 0.2s'
+};
+
+const badgeStyle = (type) => {
+    const isSuccess = type === 'PAID' || type === 'COMPLETED' || type === 'SUCCESSFUL';
+    return {
+        background: isSuccess ? '#dcfce7' : '#fee2e2',
+        color: isSuccess ? '#15803d' : '#b91c1c',
+        padding: '4px 10px',
+        borderRadius: '20px',
+        fontSize: '12px',
+        fontWeight: '700',
+        display: 'inline-block'
+    };
+};
 
 export default function CustomerPage() {
     const [customers, setCustomers] = useState([]);
@@ -12,12 +40,13 @@ export default function CustomerPage() {
     const [orders, setOrders] = useState([]);
     const [invoices, setInvoices] = useState([]);
     const [transactions, setTransactions] = useState([]);
+    const [activeTab, setActiveTab] = useState('invoices'); // 'invoices' | 'create' | 'ledger'
 
-    // Form State
+    // Billing Form State
     const [selectedOrderId, setSelectedOrderId] = useState('');
-    const [baseTariff, setBaseTariff] = useState(500000);
-    const [distanceSurcharge, setDistanceSurcharge] = useState(1200000);
-    const [surgeMultiplier, setSurgeMultiplier] = useState(1.1);
+    const [baseTariff, setBaseTariff] = useState(3000);
+    const [distanceSurcharge, setDistanceSurcharge] = useState(1100);
+    const [surgeMultiplier, setSurgeMultiplier] = useState(1.0);
     const [paymentMethod, setPaymentMethod] = useState('CORPORATE_CARD');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -46,20 +75,38 @@ export default function CustomerPage() {
         }
     }
 
-    // Filter orders for selected customer (allows unassigned orders to show)
-    const customerOrders = orders.filter(o => 
-        !o.customer_id || o.customer_id === selectedCustomer?.id || o.customer?.id === selectedCustomer?.id
-    );
+    // Filter relevant orders and invoices
+    const customerOrders = orders.filter(o => {
+        const orderCustomerId = o.customer_id || o.customer?.id;
+        const matchesCustomer = !orderCustomerId || Number(orderCustomerId) === Number(selectedCustomer?.id);
+        const isBillableStatus = !o.status || ['IN_TRANSIT', 'DISPATCHED', 'PENDING', 'COMPLETED', 'DELIVERED'].includes(o.status.toUpperCase());
+        return matchesCustomer && isBillableStatus;
+    });
 
-    // Filter invoices for selected customer
-    const customerInvoices = invoices.filter(inv => 
-        !inv.customer_id || inv.customer_id === selectedCustomer?.id || inv.customer?.id === selectedCustomer?.id
-    );
+    const customerInvoices = invoices.filter(inv => {
+        const invCustomerId = inv.customer_id || inv.customer?.id;
+        return !invCustomerId || Number(invCustomerId) === Number(selectedCustomer?.id);
+    });
 
-    // Live Math
-    const calculatedSubtotal = (Number(baseTariff) || 0) + (Number(distanceSurcharge) || 0);
-    const calculatedTotal = calculatedSubtotal * (Number(surgeMultiplier) || 1);
-    const taxAmount = calculatedTotal * 0.08;
+    // Auto-populate reasonable initial tariff rates on selection
+    function handleOrderSelect(e) {
+        const orderId = e.target.value;
+        setSelectedOrderId(orderId);
+
+        const targetOrder = customerOrders.find(o => String(o.id) === String(orderId));
+        if (targetOrder) {
+            const weight = Number(targetOrder.total_weight_kg) || 2000;
+            // Realistic base & weight calculation
+            setBaseTariff(3000);
+            setDistanceSurcharge(Math.round(weight * 0.5));
+            setSurgeMultiplier(1.0);
+        }
+    }
+
+    // Live Calculations
+    const subtotal = (Number(baseTariff) || 0) + (Number(distanceSurcharge) || 0);
+    const calculatedTotal = subtotal * (Number(surgeMultiplier) || 1);
+    const taxAmount = Math.round(calculatedTotal * 0.08);
     const grandTotal = Math.round(calculatedTotal + taxAmount);
 
     async function handleGenerateInvoice(e) {
@@ -68,19 +115,24 @@ export default function CustomerPage() {
 
         setIsSubmitting(true);
         try {
+            const relatedOrder = orders.find(o => String(o.id) === String(selectedOrderId));
+
             await createEntity('invoices', {
                 order_id: Number(selectedOrderId),
-                customer_id: selectedCustomer?.id || 1,
+                customer_id: selectedCustomer?.id || relatedOrder?.customer_id || 1,
+                trip_id: relatedOrder?.trip_id || null,
                 base_tariff: Number(baseTariff),
                 distance_surcharge: Number(distanceSurcharge),
                 surge_multiplier: Number(surgeMultiplier),
                 total_amount: grandTotal,
                 payment_status: 'UNPAID',
+                status: 'UNPAID',
                 issued_at: new Date().toISOString()
             });
 
-            alert(`Invoice issued! Total: $${grandTotal.toLocaleString()}`);
+            alert(`Invoice generated successfully! Total: $${grandTotal.toLocaleString()}`);
             setSelectedOrderId('');
+            setActiveTab('invoices');
             loadData();
         } catch (err) {
             alert(`Failed to issue invoice: ${err.message}`);
@@ -94,18 +146,26 @@ export default function CustomerPage() {
         const txnRef = `TXN-${Math.floor(100000 + Math.random() * 900000)}`;
 
         try {
+            const total = invoice.total_amount ?? invoice.amount ?? grandTotal;
+
+            // 1. Log Payment Transaction Record
             await createEntity('payment_transactions', {
                 invoice_id: invoice.id,
                 transaction_reference: txnRef,
-                amount_paid: invoice.total_amount,
+                amount_paid: total,
                 payment_method: paymentMethod,
                 transaction_status: 'SUCCESSFUL',
                 processed_at: new Date().toISOString()
             });
 
-            await updateEntity('invoices', invoice.id, { ...invoice, payment_status: 'PAID' });
+            // 2. Update Invoice to PAID
+            await updateEntity('invoices', invoice.id, {
+                ...invoice,
+                payment_status: 'PAID',
+                status: 'PAID'
+            });
 
-            alert(`Payment confirmed! Ref: ${txnRef}`);
+            alert(`Payment confirmed! Transaction Ref: ${txnRef}`);
             loadData();
         } catch (err) {
             alert(`Payment failed: ${err.message}`);
@@ -115,139 +175,121 @@ export default function CustomerPage() {
     }
 
     return (
-        <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '24px', fontFamily: 'Inter, system-ui, sans-serif', color: '#0f172a' }}>
+        <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '32px 16px', fontFamily: 'Inter, system-ui, sans-serif', color: '#0f172a' }}>
             
             {/* Header */}
-            <div style={{ ...flexBetween, marginBottom: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
                 <div>
-                    <h2 style={{ fontSize: '24px', fontWeight: '700', margin: '0 0 4px 0' }}>Enterprise Billing & Customer Settlement Portal</h2>
-                    <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>Manage client shipments, dynamic tariffs, and transaction ledgers.</p>
+                    <h2 style={{ fontSize: '26px', fontWeight: '800', margin: '0 0 6px 0', letterSpacing: '-0.5px' }}>Customer Billing Portal</h2>
+                    <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>Review invoices, manage freight tariffs, and complete payment settlements.</p>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <label style={{ fontSize: '13px', fontWeight: '600', color: '#475569' }}>Client:</label>
+                <div>
+                    <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '4px' }}>Active Account</label>
                     <select 
                         value={selectedCustomer?.id || 1} 
-                        onChange={e => setSelectedCustomer(customers.find(c => c.id === Number(e.target.value)))}
-                        style={{ ...inputStyle, width: 'auto', fontWeight: '600' }}
+                        onChange={e => setSelectedCustomer(customers.find(c => Number(c.id) === Number(e.target.value)))}
+                        style={{ ...inputStyle, background: '#f8fafc', fontWeight: '600', cursor: 'pointer' }}
                     >
                         {customers.map(c => (
-                            <option key={c.id} value={c.id}>{c.company_name} ({c.contact_email || 'Active'})</option>
+                            <option key={c.id} value={c.id}>{c.company_name}</option>
                         ))}
                     </select>
                 </div>
             </div>
 
-            {/* Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
-                
-                {/* Left Panel */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    
-                    {/* Orders */}
-                    <div style={cardStyle}>
-                        <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#334155', textTransform: 'uppercase', marginBottom: '12px' }}>Client Cargo Orders</h3>
-                        {customerOrders.length === 0 ? (
-                            <p style={{ color: '#94a3b8', fontSize: '13px', textAlign: 'center' }}>No cargo orders found.</p>
-                        ) : (
-                            customerOrders.map(o => (
-                                <div key={o.id} style={{ border: '1px solid #e2e8f0', padding: '12px', borderRadius: '6px', marginBottom: '8px', background: '#f8fafc' }}>
-                                    <div style={{ ...flexBetween, marginBottom: '4px' }}>
-                                        <span style={{ fontWeight: '700', fontSize: '14px' }}>Order #{o.id}</span>
-                                        <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: '700' }}>
-                                            {o.status || 'IN_TRANSIT'}
-                                        </span>
-                                    </div>
-                                    <div style={{ fontSize: '13px', color: '#475569' }}><strong>Cargo:</strong> {o.cargo_description || 'General Cargo'}</div>
-                                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
-                                        Weight: {o.total_weight_kg || 0} kg | Driver ID: #{o.driver_id || 'N/A'}
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
+            {/* Navigation Tabs */}
+            <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid #e2e8f0', marginBottom: '24px' }}>
+                {[
+                    { id: 'invoices', label: `Invoices (${customerInvoices.length})` },
+                    { id: 'create', label: 'Create Tariff Invoice' },
+                    { id: 'ledger', label: `Audit Ledger (${transactions.length})` }
+                ].map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        style={{
+                            padding: '10px 18px',
+                            border: 'none',
+                            background: 'none',
+                            fontSize: '14px',
+                            fontWeight: activeTab === tab.id ? '700' : '500',
+                            color: activeTab === tab.id ? '#0284c7' : '#64748b',
+                            borderBottom: activeTab === tab.id ? '3px solid #0284c7' : '3px solid transparent',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease-in-out'
+                        }}
+                    >
+                        {tab.label}
+                    </button>
+                ))}
+            </div>
 
-                    {/* Calculator */}
-                    <div style={cardStyle}>
-                        <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#334155', textTransform: 'uppercase', marginBottom: '12px' }}>Compute Dynamic Tariff Invoice</h3>
-                        <form onSubmit={handleGenerateInvoice} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            <div>
-                                <label style={{ fontSize: '12px', fontWeight: '600', color: '#475569' }}>Select Order:</label>
-                                <select value={selectedOrderId} onChange={e => setSelectedOrderId(e.target.value)} style={inputStyle} required>
-                                    <option value="">-- Choose Order to Bill --</option>
-                                    {customerOrders.map(o => (
-                                        <option key={o.id} value={o.id}>Order #{o.id} - {o.cargo_description || 'Shipment'}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                <div>
-                                    <label style={{ fontSize: '12px', fontWeight: '600', color: '#475569' }}>Base Tariff ($):</label>
-                                    <input type="number" value={baseTariff} onChange={e => setBaseTariff(e.target.value)} style={inputStyle} required />
-                                </div>
-                                <div>
-                                    <label style={{ fontSize: '12px', fontWeight: '600', color: '#475569' }}>Distance Surcharge ($):</label>
-                                    <input type="number" value={distanceSurcharge} onChange={e => setDistanceSurcharge(e.target.value)} style={inputStyle} required />
-                                </div>
-                            </div>
-
-                            <div>
-                                <div style={flexBetween}>
-                                    <label style={{ fontSize: '12px', fontWeight: '600', color: '#475569' }}>Surge Multiplier:</label>
-                                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#0284c7' }}>{surgeMultiplier}x</span>
-                                </div>
-                                <input type="range" min="1.0" max="2.5" step="0.05" value={surgeMultiplier} onChange={e => setSurgeMultiplier(e.target.value)} style={{ width: '100%', accentColor: '#0284c7' }} />
-                            </div>
-
-                            <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
-                                <div style={{ ...flexBetween, color: '#64748b' }}><span>Subtotal:</span><span>${calculatedSubtotal.toLocaleString()}</span></div>
-                                <div style={{ ...flexBetween, color: '#64748b', margin: '4px 0' }}><span>Tax (8% VAT):</span><span>${taxAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
-                                <div style={{ ...flexBetween, fontWeight: '700', borderTop: '1px solid #cbd5e1', paddingTop: '6px' }}>
-                                    <span>Calculated Total:</span>
-                                    <span style={{ color: '#0284c7' }}>${grandTotal.toLocaleString()}</span>
-                                </div>
-                            </div>
-
-                            <button type="submit" disabled={isSubmitting} style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '10px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
-                                Calculate Total & Issue Invoice
-                            </button>
-                        </form>
-                    </div>
-                </div>
-
-                {/* Right Panel: Invoices */}
-                <div style={cardStyle}>
-                    <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#334155', textTransform: 'uppercase', marginBottom: '12px' }}>Ledger Invoices & Gateway</h3>
+            {/* TAB 1: INVOICES & PAYMENT */}
+            {activeTab === 'invoices' && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
                     {customerInvoices.length === 0 ? (
-                        <p style={{ color: '#94a3b8', fontSize: '13px', textAlign: 'center' }}>No invoices generated yet.</p>
+                        <div style={{ ...cardStyle, gridColumn: '1 / -1', textAlign: 'center', color: '#94a3b8', padding: '48px' }}>
+                            No active invoices found for this account.
+                        </div>
                     ) : (
                         customerInvoices.map(inv => {
-                            const isPaid = inv.payment_status === 'PAID';
+                            const isPaid = (inv.payment_status || inv.status) === 'PAID';
+                            const base = inv.base_tariff ?? 3000;
+                            const surcharge = inv.distance_surcharge ?? 1100;
+                            const surge = inv.surge_multiplier ?? 1.0;
+                            const total = inv.total_amount ?? inv.amount ?? 4100;
+
                             return (
-                                <div key={inv.id} style={{ border: '1px solid #e2e8f0', padding: '14px', borderRadius: '8px', marginBottom: '12px' }}>
-                                    <div style={flexBetween}>
-                                        <span style={{ fontWeight: '700', fontSize: '14px' }}>Invoice #{inv.id} <small style={{ fontWeight: '400', color: '#64748b' }}>(Order #{inv.order_id})</small></span>
-                                        <span style={{ background: isPaid ? '#dcfce7' : '#fee2e2', color: isPaid ? '#15803d' : '#b91c1c', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '700' }}>
-                                            {inv.payment_status || 'UNPAID'}
+                                <div key={inv.id} style={cardStyle}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                        <span style={{ fontWeight: '800', fontSize: '16px' }}>Invoice #{inv.id}</span>
+                                        <span style={badgeStyle(isPaid ? 'PAID' : 'UNPAID')}>
+                                            {isPaid ? 'PAID' : 'UNPAID'}
                                         </span>
                                     </div>
-                                    <div style={{ fontSize: '12px', color: '#64748b', margin: '6px 0' }}>
-                                        Base: ${inv.base_tariff || 0} | Surcharge: ${inv.distance_surcharge || 0} | Surge: {inv.surge_multiplier || 1}x
+
+                                    <div style={{ fontSize: '13px', color: '#64748b', display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <span>Order Reference:</span>
+                                            <strong style={{ color: '#334155' }}>Order #{inv.order_id}</strong>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <span>Base Rate:</span>
+                                            <span>${base.toLocaleString()}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <span>Distance Surcharge:</span>
+                                            <span>${surcharge.toLocaleString()}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <span>Surge Rate:</span>
+                                            <span>{surge}x</span>
+                                        </div>
                                     </div>
-                                    <div style={{ ...flexBetween, marginBottom: '10px' }}>
-                                        <span style={{ fontSize: '12px', fontWeight: '600', color: '#475569' }}>Balance:</span>
-                                        <span style={{ fontSize: '20px', fontWeight: '800' }}>${(inv.total_amount || 0).toLocaleString()}</span>
+
+                                    <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontSize: '13px', fontWeight: '600', color: '#475569' }}>Total Due:</span>
+                                        <span style={{ fontSize: '22px', fontWeight: '800', color: '#0f172a' }}>${total.toLocaleString()}</span>
                                     </div>
 
                                     {!isPaid && (
-                                        <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                                            <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} style={{ ...inputStyle, marginBottom: '8px' }}>
+                                        <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                            <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', display: 'block', marginBottom: '6px' }}>SELECT PAYMENT METHOD</label>
+                                            <select 
+                                                value={paymentMethod} 
+                                                onChange={e => setPaymentMethod(e.target.value)} 
+                                                style={{ ...inputStyle, marginBottom: '10px', fontSize: '12px' }}
+                                            >
                                                 <option value="CORPORATE_CARD">Corporate Credit Card</option>
                                                 <option value="BANK_WIRE">Direct Wire Transfer</option>
                                                 <option value="FLEET_CREDIT">Fleet Line of Credit</option>
                                             </select>
-                                            <button onClick={() => handlePayInvoice(inv)} disabled={isSubmitting} style={{ width: '100%', background: '#16a34a', color: '#fff', border: 'none', padding: '8px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
-                                                Pay Invoice (Simulate Gateway)
+                                            <button 
+                                                onClick={() => handlePayInvoice(inv)} 
+                                                disabled={isSubmitting} 
+                                                style={{ width: '100%', background: '#16a34a', color: '#fff', border: 'none', padding: '10px', borderRadius: '6px', fontWeight: '700', cursor: 'pointer' }}
+                                            >
+                                                {isSubmitting ? 'Processing...' : 'Pay Invoice Now'}
                                             </button>
                                         </div>
                                     )}
@@ -256,52 +298,135 @@ export default function CustomerPage() {
                         })
                     )}
                 </div>
-            </div>
+            )}
 
-            {/* Bottom Audit Table */}
-            <div style={cardStyle}>
-                <div style={{ ...flexBetween, marginBottom: '12px' }}>
-                    <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#334155', textTransform: 'uppercase', margin: 0 }}>Transaction Settlement History & Audit Ledger</h3>
-                    <span style={{ fontSize: '12px', fontWeight: '600', color: '#0284c7', background: '#e0f2fe', padding: '2px 8px', borderRadius: '4px' }}>
-                        {transactions.length} Verified Records
-                    </span>
+            {/* TAB 2: INVOICE GENERATOR */}
+            {activeTab === 'create' && (
+                <div style={{ maxWidth: '600px', margin: '0 auto', ...cardStyle }}>
+                    <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px' }}>Compute & Issue Tariff Invoice</h3>
+                    
+                    <form onSubmit={handleGenerateInvoice} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div>
+                            <label style={{ fontSize: '13px', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '6px' }}>Select Order to Bill:</label>
+                            <select value={selectedOrderId} onChange={handleOrderSelect} style={inputStyle} required>
+                                <option value="">-- Choose Order --</option>
+                                {customerOrders.map(o => (
+                                    <option key={o.id} value={o.id}>
+                                        Order #{o.id} - {o.cargo_description || 'General Shipment'} ({o.status || 'IN_TRANSIT'})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div>
+                                <label style={{ fontSize: '13px', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '6px' }}>Base Tariff ($):</label>
+                                <input type="number" value={baseTariff} onChange={e => setBaseTariff(e.target.value)} style={inputStyle} required />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '13px', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '6px' }}>Distance Surcharge ($):</label>
+                                <input type="number" value={distanceSurcharge} onChange={e => setDistanceSurcharge(e.target.value)} style={inputStyle} required />
+                            </div>
+                        </div>
+
+                        <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                <label style={{ fontSize: '13px', fontWeight: '600', color: '#475569' }}>Surge Multiplier:</label>
+                                <span style={{ fontSize: '13px', fontWeight: '700', color: '#0284c7' }}>{surgeMultiplier}x</span>
+                            </div>
+                            <input 
+                                type="range" 
+                                min="1.0" 
+                                max="2.5" 
+                                step="0.1" 
+                                value={surgeMultiplier} 
+                                onChange={e => setSurgeMultiplier(e.target.value)} 
+                                style={{ width: '100%', accentColor: '#0284c7' }} 
+                            />
+                        </div>
+
+                        {/* Calculation Summary */}
+                        <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b' }}>
+                                <span>Subtotal:</span>
+                                <span>${subtotal.toLocaleString()}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b' }}>
+                                <span>Tax (8% VAT):</span>
+                                <span>${taxAmount.toLocaleString()}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '800', borderTop: '1px solid #cbd5e1', paddingTop: '8px', fontSize: '15px' }}>
+                                <span>Calculated Grand Total:</span>
+                                <span style={{ color: '#0284c7' }}>${grandTotal.toLocaleString()}</span>
+                            </div>
+                        </div>
+
+                        <button 
+                            type="submit" 
+                            disabled={isSubmitting || !selectedOrderId} 
+                            style={{ 
+                                background: isSubmitting || !selectedOrderId ? '#94a3b8' : '#0284c7', 
+                                color: '#fff', 
+                                border: 'none', 
+                                padding: '12px', 
+                                borderRadius: '8px', 
+                                fontWeight: '700', 
+                                cursor: isSubmitting || !selectedOrderId ? 'not-allowed' : 'pointer' 
+                            }}
+                        >
+                            Issue Official Invoice
+                        </button>
+                    </form>
                 </div>
+            )}
 
-                {transactions.length === 0 ? (
-                    <p style={{ color: '#94a3b8', fontSize: '13px', textAlign: 'center' }}>No transaction logs recorded.</p>
-                ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-                        <thead>
-                            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>
-                                <th style={{ padding: '8px' }}>Txn Ref</th>
-                                <th style={{ padding: '8px' }}>Invoice ID</th>
-                                <th style={{ padding: '8px' }}>Amount Paid</th>
-                                <th style={{ padding: '8px' }}>Method</th>
-                                <th style={{ padding: '8px' }}>Status</th>
-                                <th style={{ padding: '8px' }}>Timestamp</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {transactions.map((tx, idx) => (
-                                <tr key={tx.id || idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                    <td style={{ padding: '8px', fontWeight: '700', fontFamily: 'monospace', color: '#0284c7' }}>{tx.transaction_reference || `TXN-${tx.id}`}</td>
-                                    <td style={{ padding: '8px' }}>Invoice #{tx.invoice_id}</td>
-                                    <td style={{ padding: '8px', fontWeight: '700', color: '#15803d' }}>${(tx.amount_paid || 0).toLocaleString()}</td>
-                                    <td style={{ padding: '8px' }}>{(tx.payment_method || 'GATEWAY').replace('_', ' ')}</td>
-                                    <td style={{ padding: '8px' }}>
-                                        <span style={{ background: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: '700' }}>
-                                            {tx.transaction_status || 'SUCCESSFUL'}
-                                        </span>
-                                    </td>
-                                    <td style={{ padding: '8px', color: '#64748b', fontSize: '12px' }}>
-                                        {tx.processed_at ? new Date(tx.processed_at).toLocaleString() : 'Recent'}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
-            </div>
+            {/* TAB 3: TRANSACTION HISTORY */}
+            {activeTab === 'ledger' && (
+                <div style={cardStyle}>
+                    <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px' }}>Settlement & Audit Ledger History</h3>
+                    
+                    {transactions.length === 0 ? (
+                        <p style={{ color: '#94a3b8', fontSize: '13px', textAlign: 'center' }}>No recorded transaction settlements yet.</p>
+                    ) : (
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                                <thead>
+                                    <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>
+                                        <th style={{ padding: '12px' }}>Txn Reference</th>
+                                        <th style={{ padding: '12px' }}>Invoice ID</th>
+                                        <th style={{ padding: '12px' }}>Amount Paid</th>
+                                        <th style={{ padding: '12px' }}>Payment Method</th>
+                                        <th style={{ padding: '12px' }}>Status</th>
+                                        <th style={{ padding: '12px' }}>Timestamp</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {transactions.map((tx, idx) => (
+                                        <tr key={tx.id || idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                            <td style={{ padding: '12px', fontWeight: '700', fontFamily: 'monospace', color: '#0284c7' }}>
+                                                {tx.transaction_reference || `TXN-${tx.id}`}
+                                            </td>
+                                            <td style={{ padding: '12px' }}>Invoice #{tx.invoice_id}</td>
+                                            <td style={{ padding: '12px', fontWeight: '700', color: '#15803d' }}>
+                                                ${(tx.amount_paid || 0).toLocaleString()}
+                                            </td>
+                                            <td style={{ padding: '12px' }}>{(tx.payment_method || 'GATEWAY').replace('_', ' ')}</td>
+                                            <td style={{ padding: '12px' }}>
+                                                <span style={badgeStyle('SUCCESSFUL')}>
+                                                    {tx.transaction_status || 'SUCCESSFUL'}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '12px', color: '#64748b', fontSize: '12px' }}>
+                                                {tx.processed_at ? new Date(tx.processed_at).toLocaleString() : 'Recent'}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
 
         </div>
     );

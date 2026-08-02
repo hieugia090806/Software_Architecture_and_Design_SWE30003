@@ -1,70 +1,52 @@
 [
   {
-    "entity_type": "branches",
+    "entity_type": "orders",
     "payload": {
-      "branch_code": "HN03",
-      "branch_name": "Hanoi Northern Distribution Center",
-      "location_city": "Dong Anh District, Hanoi"
+      "customer_id": 1,
+      "origin_branch_id": 2,
+      "destination_branch_id": 1,
+      "vehicle_id": 1,
+      "driver_id": 2,
+      "cargo_description": "Temperature‑controlled shipment of vaccines, medical kits, and diagnostic equipment.",
+      "total_weight_kg": 7500,
+      "status": "PENDING_DISPATCH"
     },
-    "title": "New Branch: HN03",
+    "title": "Hub Transfer Order: Da Nang Central Hub -> Ho Chi Minh Central Hub",
     "status": "APPROVED",
-    "requested_at": "2026-08-01T14:08:45.659Z",
+    "requested_at": "2026-08-02T12:47:21.439Z",
     "id": 1
-  },
-  {
-    "entity_type": "users",
-    "payload": {
-      "username": "Carter Briden",
-      "password_hash": "hashed_pwd_default",
-      "role": "DRIVER"
-    },
-    "title": "New Driver Account: Carter Briden",
-    "status": "APPROVED",
-    "requested_at": "2026-08-01T14:09:56.523Z",
-    "id": 2
-  },
-  {
-    "entity_type": "vehicles",
-    "payload": {
-      "license_plate": "51A-12345",
-      "branch_id": 2,
-      "vehicle_type_id": 1,
-      "assigned_driver_id": null,
-      "status": "AVAILABLE"
-    },
-    "title": "Vehicle Asset: 51A-12345",
-    "status": "APPROVED",
-    "requested_at": "2026-08-01T14:16:01.603Z",
-    "id": 3
-  },
-  {
-    "entity_type": "drivers",
-    "payload": {
-      "user_id": 4,
-      "branch_id": 2,
-      "license_number": "123456789101",
-      "active_service_hours": 0,
-      "status": "AVAILABLE"
-    },
-    "title": "Driver Link: User #4",
-    "status": "APPROVED",
-    "requested_at": "2026-08-01T14:17:27.224Z",
-    "id": 4
   },
   {
     "entity_type": "orders",
     "payload": {
-      "origin_branch_id": 1,
-      "destination_branch_id": 3,
-      "vehicle_id": 1,
-      "driver_id": 1,
-      "cargo_description": "500 cartons of wireless earphones and portable ",
-      "total_weight_kg": 2500,
+      "customer_id": 1,
+      "origin_branch_id": 3,
+      "destination_branch_id": 1,
+      "vehicle_id": 2,
+      "driver_id": 3,
+      "cargo_description": "40 pallets of frozen seafood, poultry, and beef products requiring cold chain transport.",
+      "total_weight_kg": 1900,
       "status": "PENDING_DISPATCH"
     },
-    "title": "Hub Transfer Order: Ho Chi Minh Central Hub -> Hanoi Northern Distribution Center",
+    "title": "Hub Transfer Order: Hanoi Northern Distribution Center -> Ho Chi Minh Central Hub",
     "status": "APPROVED",
-    "requested_at": "2026-08-01T14:38:16.180Z",
-    "id": 5
+    "requested_at": "2026-08-02T12:53:04.577Z",
+    "id": 2
+  },
+  {
+    "target_entity": "drivers",
+    "payload": {
+      "username": "wdddwaszcxzggg",
+      "full_name": "wdddwaszcxzggg",
+      "branch_id": 1,
+      "license_number": "DL-88888888",
+      "active_service_hours": 0,
+      "status": "AVAILABLE",
+      "trips": []
+    },
+    "description": "New DRIVER Registration Request: wdddwaszcxzggg [DRV-HCM-220951]",
+    "status": "APPROVED",
+    "created_at": "2026-08-02T16:14:29.697Z",
+    "id": 3
   }
 ]

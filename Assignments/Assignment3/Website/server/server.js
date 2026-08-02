@@ -1,5 +1,8 @@
 import express from 'express';
 import cors from 'cors';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { getAll, getById, insert, update, remove } from './src/services/filePersistence.js';
 import { 
     getEnrichedTrips, 
@@ -13,6 +16,44 @@ const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
+
+/* -------------------- Auto Database Initialization -------------------- */
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DATA_DIR = path.join(__dirname, '../database/data');
+
+// Added vehicle_types and pending_approvals to ensure standard GET endpoints return [] instead of throwing file errors
+const REQUIRED_TABLES = [
+    'users',
+    'branches',
+    'vehicles',
+    'vehicle_types',
+    'drivers',
+    'customers',
+    'orders',
+    'trips',
+    'invoices',
+    'maintenance_records',
+    'tracking_telemetry',
+    'trip_incidents',
+    'pending_approvals'
+];
+
+function initDatabase() {
+    if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+
+    REQUIRED_TABLES.forEach((table) => {
+        const filePath = path.join(DATA_DIR, `${table}.json`);
+        if (!fs.existsSync(filePath)) {
+            fs.writeFileSync(filePath, JSON.stringify([], null, 2), 'utf-8');
+            console.log(`[Auto-Init] Created missing database file: ${table}.json`);
+        }
+    });
+}
+
+initDatabase();
 
 /* -------------------- Enriched Endpoints -------------------- */
 app.get('/api/enriched/trips', (req, res) => {

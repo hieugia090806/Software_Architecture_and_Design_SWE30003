@@ -69,6 +69,7 @@ export default function DispatcherPage() {
         const vehicleId = order.vehicle_id || 1;
         const driverId = order.driver_id || 1;
         const vehicleObj = vehicles.find(v => (v.id ?? v.vehicle_id) === Number(vehicleId));
+        const driverObj = drivers.find(d => (d.id ?? d.user_id ?? d.driver_id) === Number(driverId));
 
         const tripData = {
             order_id: order.id,
@@ -87,10 +88,29 @@ export default function DispatcherPage() {
         };
 
         try {
+            // 1. Create dispatch trip record
             await createEntity('trips', tripData);
-            await updateEntity('orders', order.id, { status: 'IN_TRANSIT' });
-            await updateEntity('vehicles', vehicleId, { status: 'EN_ROUTE' });
-            await updateEntity('drivers', driverId, { status: 'ON_TRIP' });
+
+            // 2. Safely preserve existing order attributes (e.g. customer_id, cargo_description) during update
+            await updateEntity('orders', order.id, { 
+                ...order, 
+                customer_id: order.customer_id || 1, // Ensures customer linkage for billing
+                status: 'IN_TRANSIT' 
+            });
+
+            // 3. Update Vehicle state while preserving object integrity
+            if (vehicleObj) {
+                await updateEntity('vehicles', vehicleId, { ...vehicleObj, status: 'EN_ROUTE' });
+            } else {
+                await updateEntity('vehicles', vehicleId, { status: 'EN_ROUTE' });
+            }
+
+            // 4. Update Driver state while preserving object integrity
+            if (driverObj) {
+                await updateEntity('drivers', driverId, { ...driverObj, status: 'ON_TRIP' });
+            } else {
+                await updateEntity('drivers', driverId, { status: 'ON_TRIP' });
+            }
 
             alert(`Order #${order.id} dispatched successfully!`);
             setSelectedOrder(null);
@@ -100,13 +120,32 @@ export default function DispatcherPage() {
         }
     }
 
-    // Two-step Abort Handler
+    // Two-step Abort Handler preserving object state
     async function handleAbortTrip(trip) {
         try {
-            await updateEntity('trips', trip.id, { ...trip, status: 'ABORTED', completed_at: new Date().toISOString() });
-            if (trip.order_id) await updateEntity('orders', trip.order_id, { status: 'ABORTED' });
-            if (trip.vehicle_id) await updateEntity('vehicles', trip.vehicle_id, { status: 'AVAILABLE' });
-            if (trip.driver_id) await updateEntity('drivers', trip.driver_id, { status: 'AVAILABLE' });
+            await updateEntity('trips', trip.id, { 
+                ...trip, 
+                status: 'ABORTED', 
+                completed_at: new Date().toISOString() 
+            });
+
+            if (trip.order_id) {
+                const targetOrder = pendingOrders.find(o => o.id === trip.order_id) || {};
+                await updateEntity('orders', trip.order_id, { 
+                    ...targetOrder, 
+                    status: 'ABORTED' 
+                });
+            }
+
+            if (trip.vehicle_id) {
+                const targetVehicle = vehicles.find(v => (v.id ?? v.vehicle_id) === Number(trip.vehicle_id)) || {};
+                await updateEntity('vehicles', trip.vehicle_id, { ...targetVehicle, status: 'AVAILABLE' });
+            }
+
+            if (trip.driver_id) {
+                const targetDriver = drivers.find(d => (d.id ?? d.user_id ?? d.driver_id) === Number(trip.driver_id)) || {};
+                await updateEntity('drivers', trip.driver_id, { ...targetDriver, status: 'AVAILABLE' });
+            }
 
             alert(`Trip #${trip.id} has been aborted.`);
             setAbortConfirmId(null);

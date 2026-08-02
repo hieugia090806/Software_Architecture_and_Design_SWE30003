@@ -1,13 +1,62 @@
 [
-{
-    "id": 1,
-    "order_id": 2,
-    "customer_id": 1,
-    "base_tariff": 500000,
-    "distance_surcharge": 1200000,
-    "surge_multiplier": 1.1,
-    "total_amount": 1870000,
+  {
+    "order_id": 1,
+    "trip_id": 1,
+    "base_tariff": 3000,
+    "distance_surcharge": 1100,
+    "surge_multiplier": 1,
+    "total_amount": 4100,
     "payment_status": "PAID",
-    "issued_at": "2026-08-01T12:00:00Z"
+    "issued_at": "2026-08-02T12:47:31.905Z",
+    "id": 1,
+    "order": {
+      "customer_id": 1,
+      "origin_branch_id": 2,
+      "destination_branch_id": 1,
+      "vehicle_id": 1,
+      "driver_id": 2,
+      "cargo_description": "Temperature‑controlled shipment of vaccines, medical kits, and diagnostic equipment.",
+      "total_weight_kg": 7500,
+      "status": "DELIVERED",
+      "id": 1
+    },
+    "customer": {
+      "id": 1,
+      "company_name": "Global Freight Logistics Ltd.",
+      "billing_address": "123 Harbor Ave, District 4, Ho Chi Minh City",
+      "contact_email": "billing@globalfreight.com"
+    },
+    "transaction": null,
+    "status": "PAID"
+  },
+  {
+    "order_id": 2,
+    "trip_id": 2,
+    "base_tariff": 3000,
+    "distance_surcharge": 1100,
+    "surge_multiplier": 1,
+    "total_amount": 4100,
+    "payment_status": "PAID",
+    "issued_at": "2026-08-02T12:53:12.617Z",
+    "id": 2,
+    "order": {
+      "customer_id": 1,
+      "origin_branch_id": 3,
+      "destination_branch_id": 1,
+      "vehicle_id": 2,
+      "driver_id": 3,
+      "cargo_description": "40 pallets of frozen seafood, poultry, and beef products requiring cold chain transport.",
+      "total_weight_kg": 1900,
+      "status": "DELIVERED",
+      "id": 2
+    },
+    "customer": {
+      "id": 1,
+      "company_name": "Global Freight Logistics Ltd.",
+      "billing_address": "123 Harbor Ave, District 4, Ho Chi Minh City",
+      "contact_email": "billing@globalfreight.com"
+    },
+    "transaction": null,
+    "status": "PAID"
   }
 ]

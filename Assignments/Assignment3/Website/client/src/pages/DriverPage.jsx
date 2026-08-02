@@ -82,14 +82,33 @@ export default function DriverPage() {
 
         setIsSubmitting(true);
         try {
-            // Submit trip completion for Dispatcher approval
+            // 1. Update Trip Status -> COMPLETED
             await updateEntity('trips', selectedTrip.id, {
                 ...selectedTrip,
-                status: 'PENDING_COMPLETION_APPROVAL',
+                status: 'COMPLETED',
                 lock_version: (selectedTrip.lock_version || 1) + 1
             });
 
-            alert(`Trip #${selectedTrip.id} completion submitted! Awaiting dispatcher verification.`);
+            // 2. Update Order Status -> DELIVERED (Makes order billable in CustomerPage)
+            if (selectedTrip.order_id) {
+                await updateEntity('orders', selectedTrip.order_id, {
+                    status: 'DELIVERED'
+                });
+            }
+
+            // 3. Generate structured Invoice matching schema
+            await createEntity('invoices', {
+                order_id: selectedTrip.order_id,
+                trip_id: selectedTrip.id,
+                base_tariff: 3000,
+                distance_surcharge: 1100,
+                surge_multiplier: 1.0,
+                total_amount: 4100,
+                payment_status: 'UNPAID',
+                issued_at: new Date().toISOString()
+            });
+
+            alert(`Trip #${selectedTrip.id} completed and invoice generated successfully!`);
             setSelectedTrip(null);
             loadTrips();
         } catch (err) {
@@ -115,7 +134,7 @@ export default function DriverPage() {
                     Driver Operations Interface
                 </h2>
                 <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>
-                    Manage active delivery runs, report breakdown incidents for dispatcher review, and request trip completions.
+                    Manage active delivery runs, report breakdown incidents for dispatcher review, and process trip completions.
                 </p>
             </div>
 
@@ -180,29 +199,23 @@ export default function DriverPage() {
                                     <span style={{ fontSize: '13px', color: '#64748b' }}>Order #{selectedTrip.order_id} | Vehicle ID #{selectedTrip.vehicle_id}</span>
                                 </div>
 
-                                {selectedTrip.status === 'PENDING_COMPLETION_APPROVAL' ? (
-                                    <span style={{ background: '#fef3c7', color: '#b45309', padding: '8px 14px', borderRadius: '6px', fontSize: '13px', fontWeight: '600' }}>
-                                        Completion Awaiting Dispatcher Approval
-                                    </span>
-                                ) : (
-                                    <button 
-                                        onClick={handleRequestCompletion}
-                                        disabled={isSubmitting}
-                                        style={{ 
-                                            background: '#16a34a', 
-                                            color: '#ffffff', 
-                                            border: 'none', 
-                                            padding: '10px 18px', 
-                                            borderRadius: '6px', 
-                                            fontWeight: '600', 
-                                            fontSize: '14px',
-                                            cursor: 'pointer',
-                                            transition: 'background 0.2s'
-                                        }}
-                                    >
-                                        Submit Trip Completion
-                                    </button>
-                                )}
+                                <button 
+                                    onClick={handleRequestCompletion}
+                                    disabled={isSubmitting}
+                                    style={{ 
+                                        background: '#16a34a', 
+                                        color: '#ffffff', 
+                                        border: 'none', 
+                                        padding: '10px 18px', 
+                                        borderRadius: '6px', 
+                                        fontWeight: '600', 
+                                        fontSize: '14px',
+                                        cursor: 'pointer',
+                                        transition: 'background 0.2s'
+                                    }}
+                                >
+                                    Complete Trip & Issue Invoice
+                                </button>
                             </div>
 
                             {/* Emergency & Incident Reporting Form */}
