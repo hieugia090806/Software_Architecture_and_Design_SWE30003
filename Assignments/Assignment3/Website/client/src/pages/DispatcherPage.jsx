@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { fetchEntity, fetchEnriched, createEntity, updateEntity } from '../services/api';
 
 export default function DispatcherPage() {
-    const [pendingOrders, setPendingOrders] = useState([]);
+    const [approvedOrders, setApprovedOrders] = useState([]);
     const [branches, setBranches] = useState([]);
     const [vehicles, setVehicles] = useState([]);
     const [drivers, setDrivers] = useState([]);
@@ -10,9 +10,22 @@ export default function DispatcherPage() {
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Filter and Abort 2-Step Verification states
+    // Filter states (Defaulting to 'Ho Chi Minh' if available by name or ID search)
+    const [selectedBranchId, setSelectedBranchId] = useState('ALL');
     const [statusFilter, setStatusFilter] = useState('ALL');
     const [abortConfirmId, setAbortConfirmId] = useState(null);
+
+    // New Order Request Form State
+    const [newOrder, setNewOrder] = useState({
+        origin_branch_id: '',
+        destination_branch_id: '',
+        cargo_description: '',
+        total_weight_kg: '500', // Default slider starting value
+        vehicle_id: '',
+        driver_id: '',
+        customer_id: 1
+    });
+    const [submittingOrder, setSubmittingOrder] = useState(false);
 
     useEffect(() => { 
         loadData(); 
@@ -29,12 +42,36 @@ export default function DispatcherPage() {
                 fetchEntity('branches')
             ]);
 
-            setBranches(branchList || []);
+            const fetchedBranches = branchList || [];
+            setBranches(fetchedBranches);
             setVehicles(vehiclesData || []);
             setDrivers(driversData || []);
 
-            // Filter pending dispatch queue
-            setPendingOrders((ordersData || []).filter(o => o.status === 'PENDING_DISPATCH' || o.status === 'PENDING'));
+            // 1. Find Ho Chi Minh branch by default
+            const hcmBranch = fetchedBranches.find(b => 
+                (b.branch_name || b.name || b.location_city || '').toLowerCase().includes('ho chi minh') ||
+                (b.branch_name || b.name || b.location_city || '').toLowerCase().includes('hcm')
+            );
+
+            const defaultBranchId = hcmBranch 
+                ? (hcmBranch.id ?? hcmBranch.branch_id) 
+                : (fetchedBranches[0]?.id ?? fetchedBranches[0]?.branch_id ?? 'ALL');
+
+            setSelectedBranchId(defaultBranchId);
+
+            // 2. Set default branch selections for new order form (Origin matches selected Branch Location)
+            if (fetchedBranches.length > 0) {
+                const destBranch = fetchedBranches.find(b => (b.id ?? b.branch_id) !== Number(defaultBranchId)) || fetchedBranches[0];
+                setNewOrder(prev => ({
+                    ...prev,
+                    origin_branch_id: defaultBranchId,
+                    destination_branch_id: destBranch?.id || destBranch?.branch_id || ''
+                }));
+            }
+
+            // Read from orders.json and filter strictly for READY_FOR_DISPATCH
+            const readyToDispatch = (ordersData || []).filter(order => order.status === 'READY_FOR_DISPATCH');
+            setApprovedOrders(readyToDispatch);
             setActiveTrips(tripsData || []);
         } catch (err) {
             console.error('Error loading dispatcher data:', err);
@@ -43,8 +80,20 @@ export default function DispatcherPage() {
         }
     }
 
+    // Handler when user changes the main Branch Location selector at top
+    const handleBranchLocationChange = (newBranchId) => {
+        setSelectedBranchId(newBranchId);
+        // Automatically sync Origin Branch to match selected location
+        if (newBranchId !== 'ALL') {
+            setNewOrder(prev => ({
+                ...prev,
+                origin_branch_id: newBranchId
+            }));
+        }
+    };
+
     const getBranchName = (branchId) => {
-        if (!branchId) return 'N/A';
+        if (!branchId || branchId === 'ALL') return 'All Locations';
         const found = branches.find(b => (b.id ?? b.branch_id) === Number(branchId));
         if (!found) return `Branch #${branchId}`;
         return found.branch_name || found.name || found.location_city || `Branch #${branchId}`;
@@ -62,6 +111,50 @@ export default function DispatcherPage() {
         return found ? (found.username || found.full_name || `Driver #${driverId}`) : `Driver #${driverId}`;
     };
 
+    // Form Submission (Write to requests.json instead of orders.json)
+    async function handleCreateOrderRequest(e) {
+        e.preventDefault();
+        if (!newOrder.origin_branch_id || !newOrder.destination_branch_id || !newOrder.cargo_description) {
+            alert('Please fill in all required order fields.');
+            return;
+        }
+
+        setSubmittingOrder(true);
+        try {
+            const originName = getBranchName(newOrder.origin_branch_id);
+            const destName = getBranchName(newOrder.destination_branch_id);
+
+            const payload = {
+                customer_id: Number(newOrder.customer_id) || 1,
+                origin_branch_id: Number(newOrder.origin_branch_id),
+                destination_branch_id: Number(newOrder.destination_branch_id),
+                cargo_description: newOrder.cargo_description,
+                total_weight_kg: parseFloat(newOrder.total_weight_kg) || 0,
+                vehicle_id: newOrder.vehicle_id ? Number(newOrder.vehicle_id) : null,
+                driver_id: newOrder.driver_id ? Number(newOrder.driver_id) : null
+            };
+
+            await createEntity('requests', {
+                target_entity: 'orders',
+                title: `Transfer Order Request: ${originName} → ${destName}`,
+                status: 'PENDING',
+                payload: payload,
+                created_at: new Date().toISOString()
+            });
+
+            alert('Transfer order submitted to Approvals Queue!');
+            
+            // Reset description/weight fields
+            setNewOrder(prev => ({ ...prev, cargo_description: '', total_weight_kg: '500' }));
+            loadData();
+        } catch (err) {
+            alert(`Failed to submit request: ${err.message}`);
+        } finally {
+            setSubmittingOrder(false);
+        }
+    }
+
+    // Dispatching an Order
     async function handleDispatch(orderToDispatch) {
         const order = orderToDispatch || selectedOrder;
         if (!order) return;
@@ -71,48 +164,42 @@ export default function DispatcherPage() {
         const vehicleObj = vehicles.find(v => (v.id ?? v.vehicle_id) === Number(vehicleId));
         const driverObj = drivers.find(d => (d.id ?? d.user_id ?? d.driver_id) === Number(driverId));
 
-        const tripData = {
-            order_id: order.id,
-            coordinator_id: 2,
-            vehicle_id: Number(vehicleId),
-            vehicle_type_id: vehicleObj ? vehicleObj.vehicle_type_id : 1,
-            driver_id: Number(driverId),
-            branch_id: order.origin_branch_id || 1,
-            rescue_trip_id: null,
-            status: 'IN_TRANSIT',
-            distance_km: 120.00,
-            calculated_fuel_cost: 1500.00,
-            lock_version: 1,
-            started_at: new Date().toISOString(),
-            completed_at: null
-        };
-
         try {
-            // 1. Create dispatch trip record
-            await createEntity('trips', tripData);
+            await createEntity('trips', {
+                order_id: order.id,
+                coordinator_id: 2,
+                vehicle_id: Number(vehicleId),
+                vehicle_type_id: vehicleObj ? vehicleObj.vehicle_type_id : 1,
+                driver_id: Number(driverId),
+                branch_id: order.origin_branch_id || 1,
+                rescue_trip_id: null,
+                status: 'IN_TRANSIT',
+                distance_km: 120.00,
+                calculated_fuel_cost: 1500.00,
+                lock_version: 1,
+                started_at: new Date().toISOString(),
+                completed_at: null
+            });
 
-            // 2. Safely preserve existing order attributes (e.g. customer_id, cargo_description) during update
             await updateEntity('orders', order.id, { 
                 ...order, 
-                customer_id: order.customer_id || 1, // Ensures customer linkage for billing
+                customer_id: order.customer_id || 1,
                 status: 'IN_TRANSIT' 
             });
 
-            // 3. Update Vehicle state while preserving object integrity
             if (vehicleObj) {
                 await updateEntity('vehicles', vehicleId, { ...vehicleObj, status: 'EN_ROUTE' });
             } else {
                 await updateEntity('vehicles', vehicleId, { status: 'EN_ROUTE' });
             }
 
-            // 4. Update Driver state while preserving object integrity
             if (driverObj) {
                 await updateEntity('drivers', driverId, { ...driverObj, status: 'ON_TRIP' });
             } else {
                 await updateEntity('drivers', driverId, { status: 'ON_TRIP' });
             }
 
-            alert(`Order #${order.id} dispatched successfully!`);
+            alert(`Order #${order.id} authorized! Journey started.`);
             setSelectedOrder(null);
             loadData();
         } catch (err) {
@@ -120,7 +207,6 @@ export default function DispatcherPage() {
         }
     }
 
-    // Two-step Abort Handler preserving object state
     async function handleAbortTrip(trip) {
         try {
             await updateEntity('trips', trip.id, { 
@@ -130,7 +216,7 @@ export default function DispatcherPage() {
             });
 
             if (trip.order_id) {
-                const targetOrder = pendingOrders.find(o => o.id === trip.order_id) || {};
+                const targetOrder = approvedOrders.find(o => o.id === trip.order_id) || {};
                 await updateEntity('orders', trip.order_id, { 
                     ...targetOrder, 
                     status: 'ABORTED' 
@@ -144,7 +230,7 @@ export default function DispatcherPage() {
 
             if (trip.driver_id) {
                 const targetDriver = drivers.find(d => (d.id ?? d.user_id ?? d.driver_id) === Number(trip.driver_id)) || {};
-                await updateEntity('drivers', trip.driver_id, { ...targetDriver, status: 'AVAILABLE' });
+                await updateEntity('drivers', driverId, { ...targetDriver, status: 'AVAILABLE' });
             }
 
             alert(`Trip #${trip.id} has been aborted.`);
@@ -155,10 +241,19 @@ export default function DispatcherPage() {
         }
     }
 
-    // Filter trips according to active dropdown selection
+    // Branch location filtering logic
+    const filteredApprovedOrders = approvedOrders.filter(o => {
+        if (selectedBranchId === 'ALL') return true;
+        const branchIdNum = Number(selectedBranchId);
+        return Number(o.origin_branch_id) === branchIdNum || Number(o.destination_branch_id) === branchIdNum;
+    });
+
     const filteredTrips = activeTrips.filter(t => {
-        if (statusFilter === 'ALL') return true;
-        return t.status === statusFilter;
+        const matchesStatus = statusFilter === 'ALL' || t.status === statusFilter;
+        if (selectedBranchId === 'ALL') return matchesStatus;
+        const branchIdNum = Number(selectedBranchId);
+        const matchesBranch = Number(t.branch_id || t.order?.origin_branch_id) === branchIdNum || Number(t.order?.destination_branch_id) === branchIdNum;
+        return matchesStatus && matchesBranch;
     });
 
     const getStatusBadge = (status) => {
@@ -182,31 +277,191 @@ export default function DispatcherPage() {
         border: '1px solid #e5e7eb'
     };
 
+    const inputStyle = {
+        width: '100%',
+        padding: '8px 12px',
+        borderRadius: '6px',
+        border: '1px solid #d1d5db',
+        fontSize: '14px',
+        boxSizing: 'border-box'
+    };
+
     return (
         <div style={{ maxWidth: '1350px', margin: '0 auto', padding: '32px 24px', fontFamily: 'Inter, system-ui, sans-serif' }}>
-            <div style={{ marginBottom: '28px' }}>
-                <h2 style={{ fontSize: '28px', fontWeight: '700', color: '#111827', margin: '0 0 6px 0' }}>Dispatcher Operations Center</h2>
-                <p style={{ color: '#6b7280', margin: 0 }}>Review pre-assigned transfer orders, authorize dispatch, and monitor active fleet trips.</p>
+            {/* Header with Branch Dropdown Selector */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', flexWrap: 'wrap', gap: '16px' }}>
+                <div>
+                    <h2 style={{ fontSize: '28px', fontWeight: '700', color: '#111827', margin: '0 0 6px 0' }}>Dispatcher Operations Center</h2>
+                    <p style={{ color: '#6b7280', margin: 0 }}>Review pre-assigned transfer orders, authorize dispatch, and monitor active fleet trips.</p>
+                </div>
+
+                {/* Branch Location Dropdown (Defaulting to Ho Chi Minh) */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f8fafc', padding: '10px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                    <label style={{ fontSize: '14px', fontWeight: '600', color: '#334155' }}>Branch Location:</label>
+                    <select 
+                        value={selectedBranchId} 
+                        onChange={(e) => handleBranchLocationChange(e.target.value)}
+                        style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', fontWeight: '600', background: '#ffffff', color: '#0f172a', cursor: 'pointer' }}
+                    >
+                        <option value="ALL">All Branch Locations</option>
+                        {branches.map(b => (
+                            <option key={b.id ?? b.branch_id} value={b.id ?? b.branch_id}>
+                                {b.branch_name || b.name || b.location_city || `Branch #${b.id ?? b.branch_id}`}
+                            </option>
+                        ))}
+                    </select>
+                </div>
             </div>
 
             {loading ? (
                 <div style={{ color: '#6b7280', textAlign: 'center', padding: '40px' }}>Loading fleet state...</div>
             ) : (
                 <>
+                    {/* New Order Request Form Card */}
+                    <div style={{ ...cardStyle, marginBottom: '32px', background: '#f8fafc', borderLeft: '4px solid #2563eb' }}>
+                        <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', margin: '0 0 6px 0' }}>Request New Transfer Order</h3>
+                        <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 18px 0' }}>
+                            Submit a new order request moving cargo between branches. Submitted orders enter the <strong>Approvals Queue</strong>.
+                        </p>
+
+                        <form onSubmit={handleCreateOrderRequest} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#4b5563', marginBottom: '4px' }}>Origin Branch *</label>
+                                <select 
+                                    value={newOrder.origin_branch_id} 
+                                    onChange={(e) => setNewOrder({ ...newOrder, origin_branch_id: e.target.value })}
+                                    style={inputStyle}
+                                    required
+                                >
+                                    {branches.map(b => (
+                                        <option key={b.id ?? b.branch_id} value={b.id ?? b.branch_id}>
+                                            {b.branch_name || b.name || `Branch #${b.id ?? b.branch_id}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#4b5563', marginBottom: '4px' }}>Destination Branch *</label>
+                                <select 
+                                    value={newOrder.destination_branch_id} 
+                                    onChange={(e) => setNewOrder({ ...newOrder, destination_branch_id: e.target.value })}
+                                    style={inputStyle}
+                                    required
+                                >
+                                    {branches.map(b => (
+                                        <option key={b.id ?? b.branch_id} value={b.id ?? b.branch_id}>
+                                            {b.branch_name || b.name || `Branch #${b.id ?? b.branch_id}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#4b5563', marginBottom: '4px' }}>Cargo Description *</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="e.g. Medical Supplies, Auto Parts" 
+                                    value={newOrder.cargo_description} 
+                                    onChange={(e) => setNewOrder({ ...newOrder, cargo_description: e.target.value })}
+                                    style={inputStyle}
+                                    required
+                                />
+                            </div>
+
+                            {/* Total Weight Slider Input */}
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                    <label style={{ fontSize: '12px', fontWeight: '600', color: '#4b5563' }}>Total Weight (kg)</label>
+                                    <span style={{ fontSize: '13px', fontWeight: '700', color: '#2563eb' }}>
+                                        {newOrder.total_weight_kg || 0} kg
+                                    </span>
+                                </div>
+                                <input 
+                                    type="range" 
+                                    min="0"
+                                    max="5000"
+                                    step="50"
+                                    value={newOrder.total_weight_kg || 0} 
+                                    onChange={(e) => setNewOrder({ ...newOrder, total_weight_kg: e.target.value })}
+                                    style={{ width: '100%', cursor: 'pointer', accentColor: '#2563eb', marginTop: '6px' }}
+                                />
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#9ca3af', marginTop: '2px' }}>
+                                    <span>0 kg</span>
+                                    <span>2,500 kg</span>
+                                    <span>5,000 kg</span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#4b5563', marginBottom: '4px' }}>Pre-assign Vehicle</label>
+                                <select 
+                                    value={newOrder.vehicle_id} 
+                                    onChange={(e) => setNewOrder({ ...newOrder, vehicle_id: e.target.value })}
+                                    style={inputStyle}
+                                >
+                                    <option value="">Unassigned</option>
+                                    {vehicles.map(v => (
+                                        <option key={v.id ?? v.vehicle_id} value={v.id ?? v.vehicle_id}>
+                                            {v.license_plate || `Vehicle #${v.id ?? v.vehicle_id}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#4b5563', marginBottom: '4px' }}>Pre-assign Driver</label>
+                                <select 
+                                    value={newOrder.driver_id} 
+                                    onChange={(e) => setNewOrder({ ...newOrder, driver_id: e.target.value })}
+                                    style={inputStyle}
+                                >
+                                    <option value="">Unassigned</option>
+                                    {drivers.map(d => (
+                                        <option key={d.id ?? d.user_id ?? d.driver_id} value={d.id ?? d.user_id ?? d.driver_id}>
+                                            {d.username || d.full_name || `Driver #${d.id ?? d.user_id ?? d.driver_id}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                                <button 
+                                    type="submit" 
+                                    disabled={submittingOrder}
+                                    style={{
+                                        background: '#2563eb',
+                                        color: '#ffffff',
+                                        padding: '10px 20px',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        fontWeight: '600',
+                                        fontSize: '14px',
+                                        cursor: submittingOrder ? 'not-allowed' : 'pointer',
+                                        opacity: submittingOrder ? 0.7 : 1
+                                    }}
+                                >
+                                    {submittingOrder ? 'Submitting Request...' : '+ Submit Order Request for Approval'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    {/* Order Queue & Confirmation Terminal */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
                         {/* Order Intake Queue */}
                         <div style={cardStyle}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                                <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', margin: 0 }}>Pending Dispatch Queue</h3>
+                                <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', margin: 0 }}>Approved Orders Ready for Dispatch</h3>
                                 <span style={{ background: '#eff6ff', color: '#2563eb', padding: '4px 10px', borderRadius: '9999px', fontSize: '12px', fontWeight: '600' }}>
-                                    {pendingOrders.length} Pending
+                                    {filteredApprovedOrders.length} Ready
                                 </span>
                             </div>
 
-                            {pendingOrders.length === 0 ? (
-                                <p style={{ color: '#9ca3af', fontSize: '14px', margin: 0 }}>No orders currently awaiting dispatch.</p>
+                            {filteredApprovedOrders.length === 0 ? (
+                                <p style={{ color: '#9ca3af', fontSize: '14px', margin: 0 }}>No orders currently awaiting dispatch for this branch.</p>
                             ) : (
-                                pendingOrders.map(order => (
+                                filteredApprovedOrders.map(order => (
                                     <div 
                                         key={order.id} 
                                         onClick={() => setSelectedOrder(order)}
@@ -222,7 +477,7 @@ export default function DispatcherPage() {
                                     >
                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                                             <span style={{ fontWeight: '700', color: '#111827' }}>Order #{order.id}</span>
-                                            <span style={{ fontSize: '12px', background: '#fef3c7', color: '#d97706', padding: '2px 8px', borderRadius: '4px', fontWeight: '600' }}>
+                                            <span style={{ fontSize: '12px', background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '4px', fontWeight: '600' }}>
                                                 {order.status}
                                             </span>
                                         </div>
@@ -283,7 +538,7 @@ export default function DispatcherPage() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                             <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', margin: 0 }}>Fleet Active Trips Monitor</h3>
                             
-                            {/* Filter Bar */}
+                            {/* Status Filter Bar */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <label style={{ fontSize: '13px', fontWeight: '600', color: '#4b5563' }}>Filter Status:</label>
                                 <select 
@@ -321,7 +576,7 @@ export default function DispatcherPage() {
                                     {filteredTrips.length === 0 ? (
                                         <tr>
                                             <td colSpan="12" style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>
-                                                No trips matching filter "{statusFilter}".
+                                                No trips matching selected branch and status filter "{statusFilter}".
                                             </td>
                                         </tr>
                                     ) : (

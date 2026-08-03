@@ -92,5 +92,149 @@
     },
     "latest_telemetry": null,
     "incidents": []
+  },
+  {
+    "order_id": 3,
+    "coordinator_id": 2,
+    "vehicle_id": 3,
+    "vehicle_type_id": 3,
+    "driver_id": 3,
+    "branch_id": 1,
+    "rescue_trip_id": null,
+    "status": "COMPLETED",
+    "distance_km": 120,
+    "calculated_fuel_cost": 1500,
+    "lock_version": 2,
+    "started_at": "2026-08-03T05:39:03.319Z",
+    "completed_at": null,
+    "id": 3,
+    "order": {
+      "customer_id": 1,
+      "origin_branch_id": 1,
+      "destination_branch_id": 2,
+      "cargo_description": "Shoppe",
+      "total_weight_kg": 850,
+      "vehicle_id": 3,
+      "driver_id": 3,
+      "status": "IN_TRANSIT",
+      "created_at": "2026-08-03T05:39:01.002Z",
+      "id": 3
+    },
+    "vehicle": {
+      "license_plate": "43C-999.11",
+      "branch_id": 2,
+      "vehicle_type_id": 3,
+      "assigned_driver_id": null,
+      "status": "EN_ROUTE",
+      "id": 3
+    },
+    "driver": {
+      "user_id": 4,
+      "branch_id": 2,
+      "license_number": "LIC-DAN-12401",
+      "active_service_hours": 0,
+      "status": "ON_TRIP",
+      "id": 3,
+      "username": "driver_bob",
+      "trips": [
+        {
+          "order_id": 2,
+          "coordinator_id": 2,
+          "vehicle_id": 2,
+          "vehicle_type_id": 2,
+          "driver_id": 3,
+          "branch_id": 3,
+          "rescue_trip_id": null,
+          "status": "COMPLETED",
+          "distance_km": 120,
+          "calculated_fuel_cost": 1500,
+          "lock_version": 2,
+          "started_at": "2026-08-02T12:53:09.379Z",
+          "completed_at": null,
+          "id": 2,
+          "order": {
+            "customer_id": 1,
+            "origin_branch_id": 3,
+            "destination_branch_id": 1,
+            "vehicle_id": 2,
+            "driver_id": 3,
+            "cargo_description": "40 pallets of frozen seafood, poultry, and beef products requiring cold chain transport.",
+            "total_weight_kg": 1900,
+            "status": "IN_TRANSIT",
+            "id": 2
+          },
+          "vehicle": {
+            "id": 2,
+            "license_plate": "51D-112.44",
+            "branch_id": 1,
+            "vehicle_type_id": 2,
+            "assigned_driver_id": 2,
+            "status": "EN_ROUTE"
+          },
+          "driver": {
+            "user_id": 4,
+            "branch_id": 2,
+            "license_number": "LIC-DAN-12401",
+            "active_service_hours": 0,
+            "status": "ON_TRIP",
+            "id": 3,
+            "username": "driver_bob",
+            "trips": []
+          },
+          "latest_telemetry": null,
+          "incidents": []
+        }
+      ]
+    },
+    "latest_telemetry": null,
+    "incidents": []
+  },
+  {
+    "order_id": 4,
+    "coordinator_id": 2,
+    "vehicle_id": 4,
+    "vehicle_type_id": 1,
+    "driver_id": 1,
+    "branch_id": 1,
+    "rescue_trip_id": null,
+    "status": "COMPLETED",
+    "distance_km": 120,
+    "calculated_fuel_cost": 1500,
+    "lock_version": 2,
+    "started_at": "2026-08-03T05:50:28.936Z",
+    "completed_at": null,
+    "id": 4,
+    "order": {
+      "customer_id": 1,
+      "origin_branch_id": 1,
+      "destination_branch_id": 3,
+      "cargo_description": "headphone",
+      "total_weight_kg": 500,
+      "vehicle_id": 4,
+      "driver_id": 1,
+      "status": "IN_TRANSIT",
+      "created_at": "2026-08-03T05:50:26.886Z",
+      "id": 4
+    },
+    "vehicle": {
+      "license_plate": "51A-123.55",
+      "branch_id": 2,
+      "vehicle_type_id": 1,
+      "assigned_driver_id": null,
+      "status": "EN_ROUTE",
+      "id": 4
+    },
+    "driver": {
+      "id": 1,
+      "user_id": 3,
+      "branch_id": 1,
+      "license_number": "LIC-HCM-88219",
+      "active_service_hours": 120,
+      "status": "ON_TRIP",
+      "username": "driver_alex",
+      "trips": []
+    },
+    "latest_telemetry": null,
+    "incidents": []
   }
 ]

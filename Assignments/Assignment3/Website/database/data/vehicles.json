@@ -20,7 +20,7 @@
     "branch_id": 2,
     "vehicle_type_id": 3,
     "assigned_driver_id": null,
-    "status": "AVAILABLE",
+    "status": "EN_ROUTE",
     "id": 3
   },
   {
@@ -28,7 +28,7 @@
     "branch_id": 2,
     "vehicle_type_id": 1,
     "assigned_driver_id": null,
-    "status": "AVAILABLE",
+    "status": "EN_ROUTE",
     "id": 4
   }
 ]

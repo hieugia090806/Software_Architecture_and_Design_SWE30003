@@ -4,12 +4,14 @@ import { fetchEntity, createEntity, updateEntity, deleteEntity, fetchEnriched } 
 export default function ApprovalsPage() {
     const [requests, setRequests] = useState([]);
     const [pendingTrips, setPendingTrips] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         loadRequests();
     }, []);
 
     async function loadRequests() {
+        setLoading(true);
         try {
             // Load standard pending requests table
             const data = await fetchEntity('requests');
@@ -24,6 +26,8 @@ export default function ApprovalsPage() {
             setPendingTrips(flaggedTrips);
         } catch (err) {
             console.error('Error fetching approval items:', err);
+        } finally {
+            setLoading(false);
         }
     }
 
@@ -32,7 +36,14 @@ export default function ApprovalsPage() {
         try {
             const targetType = req.target_entity || req.entity_type;
 
-            if (targetType === 'new_driver') {
+            if (targetType === 'orders') {
+                // Writes directly to orders entity upon approval
+                await createEntity('orders', {
+                    ...req.payload,
+                    status: 'READY_FOR_DISPATCH',
+                    created_at: new Date().toISOString()
+                });
+            } else if (targetType === 'new_driver') {
                 const newUser = await createEntity('users', {
                     username: req.payload?.username,
                     password_hash: req.payload?.password_hash || '$2b$10$e83/hash_driver_default',
@@ -51,10 +62,12 @@ export default function ApprovalsPage() {
                 await createEntity(targetType, req.payload);
             }
 
+            // Updates the request status
             await updateEntity('requests', req.id, { ...req, status: 'APPROVED' });
             loadRequests();
         } catch (err) {
             console.error('Error approving request:', err);
+            alert(`Failed to approve request: ${err.message}`);
         }
     }
 
@@ -64,23 +77,36 @@ export default function ApprovalsPage() {
             loadRequests();
         } catch (err) {
             console.error('Error rejecting request:', err);
+            alert(`Failed to reject request: ${err.message}`);
         }
     }
 
     // --- Handlers for Driver Terminal Actions ---
     async function handleApproveTripCompletion(trip) {
         try {
+            // 1. Update Trip state to COMPLETED
             await updateEntity('trips', trip.id, {
                 ...trip,
                 status: 'COMPLETED',
                 completed_at: new Date().toISOString()
             });
 
+            // 2. Release Vehicle back to AVAILABLE
             if (trip.vehicle_id) {
                 await updateEntity('vehicles', trip.vehicle_id, { status: 'AVAILABLE' });
             }
 
-            alert(`Trip #${trip.id} completion approved successfully!`);
+            // 3. Release Driver back to AVAILABLE
+            if (trip.driver_id) {
+                await updateEntity('drivers', trip.driver_id, { status: 'AVAILABLE' });
+            }
+
+            // 4. Complete Associated Order state for customer billing portal visibility
+            if (trip.order_id) {
+                await updateEntity('orders', trip.order_id, { status: 'COMPLETED' });
+            }
+
+            alert(`Trip #${trip.id} completion approved successfully! Order status updated to COMPLETED.`);
             loadRequests();
         } catch (err) {
             alert(`Approval failed: ${err.message}`);
@@ -96,6 +122,10 @@ export default function ApprovalsPage() {
 
             if (trip.vehicle_id) {
                 await updateEntity('vehicles', trip.vehicle_id, { status: 'MAINTENANCE' });
+            }
+
+            if (trip.driver_id) {
+                await updateEntity('drivers', trip.driver_id, { status: 'AVAILABLE' });
             }
 
             if (trip.order_id) {
@@ -176,8 +206,8 @@ export default function ApprovalsPage() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px', color: '#334155' }}>
                         <div><strong>Origin Hub ID:</strong> #{p.origin_branch_id}</div>
                         <div><strong>Destination Hub ID:</strong> #{p.destination_branch_id}</div>
-                        <div><strong>Assigned Vehicle:</strong> ID #{p.vehicle_id}</div>
-                        <div><strong>Assigned Driver:</strong> ID #{p.driver_id}</div>
+                        <div><strong>Assigned Vehicle:</strong> ID #{p.vehicle_id || 'Unassigned'}</div>
+                        <div><strong>Assigned Driver:</strong> ID #{p.driver_id || 'Unassigned'}</div>
                         <div style={{ gridColumn: 'span 2' }}><strong>Cargo Description:</strong> {p.cargo_description} ({p.total_weight_kg} kg)</div>
                     </div>
                 );
@@ -222,7 +252,9 @@ export default function ApprovalsPage() {
                 <p style={{ color: '#6b7280', margin: 0 }}>Review, approve, or discard pending trip completions, breakdown incidents, and infrastructure additions.</p>
             </div>
 
-            {!hasItems ? (
+            {loading ? (
+                <div style={{ color: '#6b7280', textAlign: 'center', padding: '40px' }}>Loading approval items...</div>
+            ) : !hasItems ? (
                 <div style={{ background: '#ffffff', padding: '40px', borderRadius: '12px', border: '1px solid #e2e8f0', textAlign: 'center', color: '#64748b' }}>
                     No pending requests or driver approvals requiring attention at this time.
                 </div>

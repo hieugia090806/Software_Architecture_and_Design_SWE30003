@@ -46,5 +46,29 @@
       "status": "AVAILABLE"
     },
     "id": 6
+  },
+  {
+    "username": "Pedri",
+    "full_name": "Pablo Pedri",
+    "role": "BRANCH_MANAGER",
+    "registration_code": "MGR-HCM-922750",
+    "branch_id": 1,
+    "id": 7
+  },
+  {
+    "username": "yamal",
+    "full_name": "lamine yamal",
+    "role": "BRANCH_MANAGER",
+    "registration_code": "MGR-DAD-305577",
+    "branch_id": 2,
+    "id": 8
+  },
+  {
+    "username": "Messi",
+    "full_name": "Leo",
+    "role": "BRANCH_MANAGER",
+    "registration_code": "MGR-HAN-215435",
+    "branch_id": 3,
+    "id": 9
   }
 ]

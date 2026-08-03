@@ -82,7 +82,7 @@ export default function DriverPage() {
 
         setIsSubmitting(true);
         try {
-            // 1. Update Trip Status -> COMPLETED
+            // 1. Update Trip Status -> COMPLETED with concurrency control (lock_version)
             await updateEntity('trips', selectedTrip.id, {
                 ...selectedTrip,
                 status: 'COMPLETED',
@@ -96,7 +96,7 @@ export default function DriverPage() {
                 });
             }
 
-            // 3. Generate structured Invoice matching schema
+            // 3. Generate structured Invoice matching schema requirements
             await createEntity('invoices', {
                 order_id: selectedTrip.order_id,
                 trip_id: selectedTrip.id,

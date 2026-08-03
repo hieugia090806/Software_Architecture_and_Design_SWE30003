@@ -16,5 +16,23 @@
     "transaction_status": "SUCCESSFUL",
     "processed_at": "2026-08-02T12:53:18.917Z",
     "id": 2
+  },
+  {
+    "invoice_id": 3,
+    "transaction_reference": "TXN-928321",
+    "amount_paid": 4100,
+    "payment_method": "CORPORATE_CARD",
+    "transaction_status": "SUCCESSFUL",
+    "processed_at": "2026-08-03T05:39:16.145Z",
+    "id": 3
+  },
+  {
+    "invoice_id": 4,
+    "transaction_reference": "TXN-589522",
+    "amount_paid": 4100,
+    "payment_method": "BANK_WIRE",
+    "transaction_status": "SUCCESSFUL",
+    "processed_at": "2026-08-03T05:50:53.264Z",
+    "id": 4
   }
 ]

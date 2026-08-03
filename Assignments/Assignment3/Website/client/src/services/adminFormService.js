@@ -1,6 +1,6 @@
 // Assignments\Assignment3\Website\client\src\services\adminFormService.js
 
-import { createEntity, generateUniqueUserCode } from './adminService';
+import { createEntity, generateUniqueUserCode, fetchEntity } from './adminService';
 
 export const INITIAL_FORM_STATES = {
     branch: { 
@@ -17,7 +17,6 @@ export const INITIAL_FORM_STATES = {
         base_fuel_rate: 1.5 
     },
     vehicle: { 
-        license_plate: '', 
         branch_id: '', 
         vehicle_type_id: '', 
         is_cold_chain: false, 
@@ -29,7 +28,7 @@ export const INITIAL_FORM_STATES = {
     user: { 
         full_name: '', 
         username: '', 
-        role: 'DRIVER', 
+        role: 'BRANCH_MANAGER', // Default role (ADMIN removed)
         branch_id: '', 
         license_number: '',
         company_name: '', 
@@ -39,12 +38,34 @@ export const INITIAL_FORM_STATES = {
     }
 };
 
+// Available operational roles (ADMIN is unique system-wide and excluded from options)
+export const USER_ROLE_OPTIONS = [
+    { value: 'BRANCH_MANAGER', label: 'Branch Manager' },
+    { value: 'DISPATCHER', label: 'Dispatcher' },
+    { value: 'DRIVER', label: 'Driver' },
+    { value: 'CUSTOMER', label: 'Customer' }
+];
+
 export const TABS = [
     { key: 'branch', label: 'Branch Hubs' },
     { key: 'vtype', label: 'Specifications' },
     { key: 'vehicle', label: 'Vehicle Assets' },
     { key: 'user', label: 'User & Access Control' }
 ];
+
+// Helper to auto-generate realistic VN License Plates based on Branch Hub Prefix
+function generateAutoLicensePlate(branchId, branches = []) {
+    const branch = branches.find(b => String(b.id) === String(branchId));
+    let prefix = '51C'; // Default Ho Chi Minh prefix
+    
+    if (branch && branch.branch_code) {
+        if (branch.branch_code.includes('DAD') || branch.branch_code.includes('DAN')) prefix = '43C';
+        else if (branch.branch_code.includes('HAN')) prefix = '29C';
+    }
+
+    const randomNum5 = Math.floor(10000 + Math.random() * 90000).toString();
+    return `${prefix}-${randomNum5.substring(0, 3)}.${randomNum5.substring(3)}`;
+}
 
 export async function processFormSubmission(tab, formData, contextData) {
     const { branches = [] } = contextData || {};
@@ -91,8 +112,15 @@ export async function processFormSubmission(tab, formData, contextData) {
         }
 
         case 'vehicle': {
+            if (!formData.branch_id) {
+                throw new Error('Please select a assigned Branch Hub for this vehicle.');
+            }
+
+            // Auto-generate vehicle license plate
+            const autoPlate = generateAutoLicensePlate(formData.branch_id, branches);
+
             const payload = {
-                license_plate: formData.license_plate,
+                license_plate: autoPlate,
                 branch_id: Number(formData.branch_id),
                 vehicle_type_id: Number(formData.vehicle_type_id),
                 status: 'AVAILABLE',
@@ -106,19 +134,39 @@ export async function processFormSubmission(tab, formData, contextData) {
             await createEntity('requests', {
                 target_entity: 'vehicles',
                 payload,
-                description: `New Vehicle Asset Request: ${formData.license_plate}`,
+                description: `New Vehicle Asset Request: ${autoPlate}`,
                 status: 'PENDING',
                 created_at: new Date().toISOString()
             });
 
-            return `Submitted vehicle asset request for ${formData.license_plate} for approval.`;
+            return `Submitted vehicle asset request (${autoPlate}) for approval.`;
         }
 
         case 'user': {
-            const username = formData.username || formData.full_name;
             const { role, branch_id, company_name, billing_address, email, phone, license_number } = formData;
-            const registrationCode = generateUniqueUserCode(role, branch_id, branches);
+            const username = formData.username || formData.full_name;
 
+            if (role === 'ADMIN') {
+                throw new Error('System rules restrict creating additional ADMIN accounts. Only 1 Global Admin is permitted.');
+            }
+
+            // Enforce: Each branch can only have 1 Branch Manager
+            if (role === 'BRANCH_MANAGER') {
+                if (!branch_id) {
+                    throw new Error('Branch Manager must be assigned to a specific Branch Hub.');
+                }
+
+                const existingUsers = await fetchEntity('users');
+                const hasExistingManager = existingUsers.some(
+                    u => u.role === 'BRANCH_MANAGER' && Number(u.branch_id) === Number(branch_id)
+                );
+
+                if (hasExistingManager) {
+                    throw new Error(`Branch Hub #${branch_id} already has an assigned Branch Manager. Only 1 manager per branch is allowed.`);
+                }
+            }
+
+            const registrationCode = generateUniqueUserCode(role, branch_id, branches);
             let payload = {};
             let targetEntity = 'users';
 
@@ -137,7 +185,7 @@ export async function processFormSubmission(tab, formData, contextData) {
                 targetEntity = 'customers';
                 payload = {
                     username,
-                    company_name,
+                    company_name: company_name || username,
                     contact_name: formData.full_name || username,
                     email,
                     phone,
