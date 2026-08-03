@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "branch_code": "HCM-HUB",
+    "branch_name": "Ho Chi Minh Central Hub",
+    "location_city": "Ho Chi Minh City"
+  },
+  {
+    "branch_code": "DAD-HUB",
+    "branch_name": "Da Nang Central Hub",
+    "location_city": "Da Nang",
+    "id": 2
+  },
+  {
+    "branch_code": "HAN-HUB",
+    "branch_name": "Hanoi Northern Distribution Center",
+    "location_city": "Hanoi",
+    "id": 3
+  }
+]

@@ -1,0 +1,132 @@
+[
+  {
+    "id": 1,
+    "user_id": 3,
+    "branch_id": 1,
+    "license_number": "LIC-HCM-88219",
+    "active_service_hours": 120,
+    "status": "ON_TRIP",
+    "username": "driver_alex",
+    "trips": []
+  },
+  {
+    "id": 2,
+    "user_id": 4,
+    "branch_id": 1,
+    "license_number": "LIC-HCM-99401",
+    "active_service_hours": 85,
+    "status": "ON_TRIP",
+    "username": "driver_bob",
+    "trips": []
+  },
+  {
+    "user_id": 4,
+    "branch_id": 2,
+    "license_number": "LIC-DAN-12401",
+    "active_service_hours": 0,
+    "status": "ON_TRIP",
+    "id": 3,
+    "username": "driver_bob",
+    "trips": [
+      {
+        "order_id": 2,
+        "coordinator_id": 2,
+        "vehicle_id": 2,
+        "vehicle_type_id": 2,
+        "driver_id": 3,
+        "branch_id": 3,
+        "rescue_trip_id": null,
+        "status": "COMPLETED",
+        "distance_km": 120,
+        "calculated_fuel_cost": 1500,
+        "lock_version": 2,
+        "started_at": "2026-08-02T12:53:09.379Z",
+        "completed_at": null,
+        "id": 2,
+        "order": {
+          "customer_id": 1,
+          "origin_branch_id": 3,
+          "destination_branch_id": 1,
+          "vehicle_id": 2,
+          "driver_id": 3,
+          "cargo_description": "40 pallets of frozen seafood, poultry, and beef products requiring cold chain transport.",
+          "total_weight_kg": 1900,
+          "status": "IN_TRANSIT",
+          "id": 2
+        },
+        "vehicle": {
+          "id": 2,
+          "license_plate": "51D-112.44",
+          "branch_id": 1,
+          "vehicle_type_id": 2,
+          "assigned_driver_id": 2,
+          "status": "EN_ROUTE"
+        },
+        "driver": {
+          "user_id": 4,
+          "branch_id": 2,
+          "license_number": "LIC-DAN-12401",
+          "active_service_hours": 0,
+          "status": "ON_TRIP",
+          "id": 3,
+          "username": "driver_bob",
+          "trips": []
+        },
+        "latest_telemetry": null,
+        "incidents": []
+      }
+    ]
+  },
+  {
+    "user_id": 5,
+    "branch_id": 2,
+    "license_number": "DRV-DAD-507340",
+    "active_service_hours": 0,
+    "status": "AVAILABLE",
+    "id": 4
+  },
+  {
+    "full_name": "dwdddddd",
+    "role": "DRIVER",
+    "registration_code": "DRV-HCM-707450",
+    "branch_id": 1,
+    "driver_details": {
+      "license_number": "DL-4654561",
+      "active_service_hours": 0,
+      "status": "AVAILABLE"
+    },
+    "id": 5
+  },
+  {
+    "full_name": "wdaddddddd",
+    "role": "DRIVER",
+    "registration_code": "DRV-DAD-353770",
+    "branch_id": 2,
+    "driver_details": {
+      "license_number": "DL-4568887",
+      "active_service_hours": 0,
+      "status": "AVAILABLE"
+    },
+    "id": 6
+  },
+  {
+    "username": "wdddwaszcxzggg",
+    "full_name": "wdddwaszcxzggg",
+    "branch_id": 1,
+    "license_number": "DL-88888888",
+    "active_service_hours": 0,
+    "status": "AVAILABLE",
+    "trips": [],
+    "id": 7
+  },
+  {
+    "username": "yamal",
+    "full_name": "yamal",
+    "branch_id": 1,
+    "license_number": "DL-4566878",
+    "active_service_hours": 0,
+    "status": "AVAILABLE",
+    "trips": [],
+    "id": 8
+  }
+]

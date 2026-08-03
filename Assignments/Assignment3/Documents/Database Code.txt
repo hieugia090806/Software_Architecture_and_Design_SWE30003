@@ -1,94 +1,176 @@
-// ==========================================
-// SmartFM System Final Database Schema
-// Optimized for dbdiagram.io
-// ==========================================
+// ===================================================
+// SMART FLEET MANAGEMENT SYSTEM (SmartFM) - FINAL ERD
+// Updated & Synchronized with Class Diagrams & Sequence Diagrams
+// ===================================================
 
+// 1. USERS & SYSTEM AUTHENTICATION (Core Hierarchy)
 Table users {
-id integer [pk, increment]
-full_name varchar [not null]
-email varchar [unique, not null]
-password_hash varchar [not null]
-role varchar [not null, note: 'ADMIN, COORDINATOR, DRIVER']
-created_at timestamp
+  id int [pk, increment]
+  username varchar(50) [not null, unique]
+  password_hash varchar(255) [not null]
+  email varchar(100) [not null, unique]
+  phone_number varchar(20)
+  role varchar(30) [not null, note: 'ADMIN, OWNER, DISPATCHER, FLEET_MANAGER, DRIVER, CUSTOMER']
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
 }
 
-Table vehicle_types {
-id integer [pk, increment]
-type_name varchar [not null]
-max_payload_kg numeric [not null, note: 'Boundary <= 30000kg']
-volumetric_limit_m3 numeric [not null, note: 'Boundary <= 120m3']
+// 2. REGIONAL HUBS / BRANCHES
+Table branches {
+  id int [pk, increment]
+  branch_code varchar(20) [not null, unique]
+  branch_name varchar(100) [not null]
+  location_city varchar(50) [not null]
+  address text [not null]
 }
 
-Table vehicles {
-id integer [pk, increment]
-license_plate varchar [unique, not null]
-vehicle_type_id integer [ref: > vehicle_types.id]
-current_status varchar [not null, note: 'AVAILABLE, ON_TRIP, MAINTENANCE']
-current_mileage numeric [default: 0]
+// 3. B2B CUSTOMERS PROFILE
+Table customers {
+  id int [pk, increment]
+  user_id int [not null, unique, ref: - users.id]
+  company_name varchar(150) [not null]
+  tax_code varchar(50) [not null, unique]
+  billing_address text [not null]
+  credit_limit decimal(12,2) [default: 0.0]
 }
 
+// 4. DRIVERS PROFILE
 Table drivers {
-id integer [pk, increment]
-user_id integer [ref: - users.id]
-full_name varchar [not null]
-license_number varchar [unique, not null]
-date_of_birth date
-hometown varchar
-is_active boolean [default: true]
+  id int [pk, increment]
+  user_id int [not null, unique, ref: - users.id]
+  branch_id int [not null, ref: > branches.id]
+  license_number varchar(50) [not null, unique]
+  active_service_hours double [default: 0.0, note: 'Fatigue enforcement limit']
+  status varchar(20) [not null, default: 'AVAILABLE', note: 'AVAILABLE, ON_TRIP, OFF_DUTY']
 }
 
-Table trips {
-id integer [pk, increment]
-coordinator_id integer [ref: > users.id]
-vehicle_id integer [ref: > vehicles.id]
-driver_id integer [ref: > drivers.id]
-origin_hub varchar [not null]
-destination_hub varchar [not null]
-departure_time timestamp
-arrival_time timestamp
-status varchar [not null, note: 'PLANNED, IN_TRANSIT, COMPLETED, CANCELLED']
-created_at timestamp
+// 5. VEHICLE CLASSIFICATIONS
+Table vehicle_types {
+  id int [pk, increment]
+  type_name varchar(50) [not null]
+  max_payload_kg double [not null]
+  volumetric_limit_m3 double [not null]
+  base_fuel_rate double [not null, note: 'Baseline fuel L/100km']
 }
 
+// 6. PHYSICAL VEHICLES FLEET
+Table vehicles {
+  id int [pk, increment]
+  license_plate varchar(20) [not null, unique]
+  vehicle_type_id int [not null, ref: > vehicle_types.id]
+  branch_id int [not null, ref: > branches.id]
+  assigned_driver_id int [unique, ref: - drivers.id]
+  status varchar(20) [not null, default: 'IDLE', note: 'IDLE, ON_TRIP, MAINTENANCE']
+  lock_version int [default: 0, note: 'Optimistic locking concurrency control']
+}
+
+// 7. MAINTENANCE & REPAIRS LOG
+Table maintenance_records {
+  id int [pk, increment]
+  vehicle_id int [not null, ref: > vehicles.id]
+  servicing_type varchar(100) [not null, note: 'Engine, Tire, Scheduled Check, Breakdown Repair']
+  cost decimal(12,2) [not null, default: 0.0]
+  description text
+  started_at timestamp [default: `CURRENT_TIMESTAMP`]
+  completed_at timestamp [note: 'NULL if currently in repair']
+}
+
+// 8. ORDERS
 Table orders {
-id integer [pk, increment]
-order_code varchar [unique, not null]
-customer_name varchar [not null]
-customer_phone varchar [not null]
-pickup_address varchar [not null]
-delivery_address varchar [not null]
-total_weight_kg numeric [not null, note: 'Boundary Check <= Vehicle Capacity']
-total_volume_m3 numeric [not null, note: 'Boundary Check <= Vehicle Volumetric Limit']
-base_price numeric [not null]
-surge_multiplier numeric [default: 1.0, note: 'Cap at max 2.5']
-total_amount numeric [not null]
-status varchar [not null, note: 'PENDING, ASSIGNED, IN_TRANSIT, DELIVERED, CANCELLED']
-trip_id integer [ref: > trips.id, note: 'FK to Trip when assigned']
-created_at timestamp
+  id int [pk, increment]
+  customer_id int [not null, ref: > customers.id]
+  origin_branch_id int [not null, ref: > branches.id]
+  destination_address text [not null]
+  total_weight_kg double [not null, default: 0.0]
+  total_volume_m3 double [not null, default: 0.0]
+  total_amount decimal(12,2) [not null, default: 0.0]
+  status varchar(20) [not null, default: 'PENDING', note: 'PENDING, ASSIGNED, IN_TRANSIT, DELIVERED, CANCELLED']
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
 }
 
-Table trip_incidents {
-id integer [pk, increment]
-trip_id integer [ref: > trips.id]
-has_damage boolean [default: false]
-damage_description text
-notes text
-reported_at timestamp
+// 9. CARGO ITEMS (Composition of Order)
+Table cargo_items {
+  id int [pk, increment]
+  order_id int [not null, ref: > orders.id]
+  item_name varchar(100) [not null]
+  weight_kg double [not null]
+  volume_m3 double [not null]
+  is_fragile boolean [default: false]
 }
 
-Table telemetry_records {
-id integer [pk, increment]
-vehicle_id integer [ref: > vehicles.id]
-latitude numeric [not null]
-longitude numeric [not null]
-calculated_velocity numeric [not null, note: 'Boundary <= 120 km/h']
-recorded_at timestamp
+// 10. TRIPS / DISPATCH EXECUTION
+Table trips {
+  id int [pk, increment]
+  order_id int [not null, ref: > orders.id]
+  dispatcher_id int [not null, ref: > users.id]
+  vehicle_id int [not null, ref: > vehicles.id]
+  driver_id int [not null, ref: > drivers.id]
+  rescue_trip_id int [ref: - trips.id, note: 'Points to rescue trip if vehicle breaks down']
+  distance_km double [not null, default: 0.0]
+  calculated_fuel_cost double
+  status varchar(20) [not null, default: 'SCHEDULED', note: 'SCHEDULED, ON_TRIP, COMPLETED, CANCELLED, INCIDENT_HALTED']
+  started_at timestamp
+  completed_at timestamp
 }
 
+// 11. REAL-TIME GPS TELEMETRY FEED
+Table tracking_telemetry {
+  id bigint [pk, increment]
+  trip_id int [not null, ref: > trips.id]
+  latitude decimal(9,6) [not null]
+  longitude decimal(9,6) [not null]
+  calculated_velocity double [default: 0.0]
+  recorded_at timestamp [default: `CURRENT_TIMESTAMP`]
+}
+
+// 12. TELEMETRY ALERTS (Overspeed, Off-route)
 Table alerts {
-id integer [pk, increment]
-vehicle_id integer [ref: > vehicles.id]
-alert_type varchar [not null, note: 'OVERSPEED, GEOFENCE_BREACH, LOW_BATTERY']
-description text
-created_at timestamp
+  id int [pk, increment]
+  vehicle_id int [not null, ref: > vehicles.id]
+  trip_id int [ref: > trips.id]
+  alert_type varchar(50) [not null, note: 'OVERSPEED, HARSH_BRAKING, OFF_ROUTE, GEOFENCE_BREACH']
+  description text
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+}
+
+// 13. TRIP INCIDENTS (Breakdown, Accidents, Cargo Damage)
+Table trip_incidents {
+  id int [pk, increment]
+  trip_id int [not null, ref: > trips.id]
+  incident_type varchar(50) [not null, note: 'BREAKDOWN, ACCIDENT, DELAY, CARGO_DAMAGE']
+  has_damage boolean [default: false]
+  damage_description text
+  action_taken text [note: 'e.g. Swapped vehicle, Called rescue...']
+  reported_at timestamp [default: `CURRENT_TIMESTAMP`]
+}
+
+// 14. INVOICES & BILLING
+Table invoices {
+  id int [pk, increment]
+  order_id int [not null, unique, ref: - orders.id]
+  base_tariff decimal(12,2) [not null]
+  distance_surcharge decimal(12,2) [not null, default: 0.0]
+  surge_multiplier decimal(4,2) [default: 1.00]
+  total_amount decimal(12,2) [not null]
+  payment_status varchar(20) [not null, default: 'UNPAID', note: 'UNPAID, PROCESSING, SETTLED, FAILED']
+  issued_at timestamp [default: `CURRENT_TIMESTAMP`]
+}
+
+// 15. PAYMENT GATEWAY TRANSACTIONS
+Table payment_transactions {
+  id int [pk, increment]
+  invoice_id int [not null, ref: > invoices.id]
+  transaction_reference varchar(100) [not null, unique]
+  amount_paid decimal(12,2) [not null]
+  transaction_status varchar(20) [not null, note: 'SUCCESS, FAILED, RECONCILED']
+  processed_at timestamp [default: `CURRENT_TIMESTAMP`]
+}
+
+// 16. SYSTEM NOTIFICATIONS (Dispatch History)
+Table notifications {
+  id int [pk, increment]
+  user_id int [not null, ref: > users.id]
+  notification_type varchar(20) [not null, note: 'SMS, EMAIL, IN_APP']
+  message text [not null]
+  is_read boolean [default: false]
+  sent_at timestamp [default: `CURRENT_TIMESTAMP`]
 }

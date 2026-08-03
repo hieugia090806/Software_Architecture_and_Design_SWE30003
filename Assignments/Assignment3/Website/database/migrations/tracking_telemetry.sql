@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS tracking_telemetry (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    trip_id INT NOT NULL,
+    latitude DECIMAL(10,6) NOT NULL,
+    longitude DECIMAL(10,6) NOT NULL,
+    calculated_velocity DECIMAL(5,2) NOT NULL,
+    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_telemetry_trip FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

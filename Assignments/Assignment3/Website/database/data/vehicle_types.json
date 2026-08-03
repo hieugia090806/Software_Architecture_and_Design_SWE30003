@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1,
+    "type_name": "10-Ton Truck",
+    "max_payload_kg": 10000,
+    "volumetric_limit_m3": 30,
+    "base_fuel_rate": 12.5
+  },
+  {
+    "id": 2,
+    "type_name": "5-Ton Van",
+    "max_payload_kg": 5000,
+    "volumetric_limit_m3": 15,
+    "base_fuel_rate": 8
+  },
+  {
+    "type_name": "5-Ton Refrigerated Van",
+    "max_payload_kg": 5000,
+    "volumetric_limit_m3": 18,
+    "base_fuel_rate": 1.8,
+    "id": 3
+  }
+]
