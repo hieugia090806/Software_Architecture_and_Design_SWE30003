@@ -1,75 +1,61 @@
-SmartFM – Fleet Management System
-SmartFM is a full‑stack logistics management project built with Node.js/Express for the backend and React + Vite for the frontend.
-It simulates a fleet operations platform with modules for Admin Configurator, Dispatcher Center, Driver App, and Customer Billing Portal.
-The backend uses JSON files as a lightweight database and provides enriched REST APIs that behave like SQL joins.
+# SmartFM – Fleet Management System
 
-Requirements
-Before running locally, ensure you have:
+![Node.js](https://img.shields.io/badge/Node.js-v18%2B-green)
+![React](https://img.shields.io/badge/React-Vite-blue)
+![Architecture](https://img.shields.io/badge/Architecture-Full--Stack-orange)
 
-Node.js version 18 or newer
+---
 
-npm (comes bundled with Node.js)
+## Abstract
 
-Git (to clone the repository)
+This document outlines the architecture, design, and implementation of **SmartFM**, a web-based Fleet Management System engineered to enhance operational transparency and supply chain visibility. Addressing key industry challenges such as real-time vehicle tracking, route monitoring, and multi-role data governance, SmartFM provides a unified platform built upon a modern, decoupled web architecture. Specifically, the system integrates a dynamic **React** single-page application (SPA) on the front-end with an asynchronous, event-driven **Node.js** RESTful API services layer on the back-end.
 
-Project Structure
-Code
-Website/
-├── server/        # Backend (Express + file persistence)
-├── client/        # Frontend (React + Vite)
-└── database/data/ # JSON files acting as database tables
-Backend Setup (Express Server)
-Open a terminal and navigate to the server folder:
+In order to accommodate diverse operational stakeholders, SmartFM features four role-tailored execution portals: an **Admin Configurator Portal** for system configurations, a **Dispatcher Control Center** to manage fleet telemetry, a **Driver Workspace** for field staff to handle route manifests, and a **Customer Portal** providing clients with live order tracking and financial insights. Furthermore, during the prototyping phase, dynamic mock data simulation engines were implemented to validate high-frequency telemetry streams—including GPS coordinates, speed metrics, geofence status, and automated alert logs—prior to physical IoT device integration. 
 
-bash
-cd Website/server
-Install dependencies:
+Consequently, system testing and architectural verification confirm that SmartFM successfully achieves efficient state management, strict role-based access control, and low-latency UI updates. Ultimately, the modular design and clean separation of concerns establish a scalable foundation fully prepared for future IoT hardware onboarding, predictive analytics, and cloud-based deployment.
 
-bash
-npm install
-Start the backend server:
+---
 
-bash
-npm run dev
-The backend runs at:
+## 1. Executive Summary & Project Introduction
 
-Code
-http://localhost:5000
-Example backend endpoints
-Trips (enriched with orders, vehicles, drivers, telemetry, incidents):
-http://localhost:5000/api/enriched/trips
+**SmartFM** is an enterprise-grade, full-stack logistics management platform engineered to digitize and streamline end-to-end fleet operations. Built upon a decoupled architecture featuring a **Node.js/Express** RESTful API backend and a dynamic **React + Vite** single-page application (SPA) frontend, SmartFM provides operational transparency, real-time telemetry tracking, and seamless cross-role collaboration.
 
-Invoices (enriched with orders, customers, transactions):
-http://localhost:5000/api/enriched/invoices
+---
 
-Customers (enriched with orders and invoices):
-http://localhost:5000/api/enriched/customers
+## 2. Business Scenario & Problem Statement
 
-Drivers (enriched with user and trips):
-http://localhost:5000/api/enriched/drivers
+### The Problem Context
+Modern mid-to-large-scale logistics enterprise operations face severe operational bottlenecks due to fragmented systems and legacy processes:
+* **Fragmented Communication:** Dispatchers lack a unified, live visualization interface to monitor vehicle positions, leading to delayed incident responses and inefficient route management.
+* **Operational Inefficiencies:** Field drivers rely on paper-based manifests and manual status updates, introducing data latency and high administrative overhead.
+* **Opaque Customer Experience:** Enterprise clients have limited visibility into their active shipments, resulting in excessive support inquiries regarding order status, delivery verification, and financial invoicing.
 
-Frontend Setup (React + Vite)
-Open a new terminal and navigate to the client folder:
+### The SmartFM Solution
+SmartFM resolves these operational gaps by establishing a centralized, data-driven system of record. By implementing Role-Based Access Control (RBAC) and asynchronous event-driven data streaming, the platform connects all operational stakeholders through dedicated, task-tailored execution portals.
 
-bash
-cd Website/client
-Install dependencies:
+---
 
-bash
-npm install
-Start the frontend dev server:
+## 3. Operational Workspaces (User Scenarios)
 
-bash
-npm run dev
-The frontend runs at:
+SmartFM categorizes system functionality into four distinct execution portals:
 
-Code
-http://localhost:5173
-Running the Project
-Start backend (npm run dev inside /server)
+1. **Admin Configurator Portal:**
+   * Empowers system administrators to configure system parameters, register vehicle assets, manage driver profiles, and set global operational thresholds.
+2. **Dispatcher Control Center:**
+   * Equips dispatchers with live telemetry visualization (GPS, speed metrics, geofence status), real-time driver tracking, and automated alert logs for incident response.
+3. **Driver Mobile App:**
+   * Provides field staff with a mobile-responsive interface to accept dispatch manifests, record milestone completions, log operational incidents, and update trip statuses in real time.
+4. **Customer Billing & Tracking Portal:**
+   * Offers enterprise clients self-service capabilities to track active shipment lifecycles, review order histories, and audit digital invoice records.
 
-Start frontend (npm run dev inside /client)
+---
 
-Open http://localhost:5173 in your browser
+## 4. System Architecture & Project Structure
 
-The frontend will call backend APIs at http://localhost:5000
+The platform adopts a lightweight JSON-based file persistence layer designed to execute complex, asynchronous relational join operations at the service layer, mimicking SQL-like joins over flat-file structures.
+
+```text
+Assignments/Assignment3/website/
+├── server/          # Backend RESTful API Service (Express.js)
+├── client/          # Frontend Web Application (React + Vite SPA)
+└── database/data/   # Simulated Relational Storage (JSON Data Collections)
